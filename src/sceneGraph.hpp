@@ -14,11 +14,15 @@
 #include <fstream>
 
 enum SceneNodeType {
-	GEOMETRY, POINT_LIGHT, SPOT_LIGHT
+	GEOMETRY,
+    GEOMETRY_2D, 
+    NORMAL_MAPPED, // Normal mapped 3D geometry
+    POINT_LIGHT,
+    SPOT_LIGHT
 };
 
 struct SceneNode {
-	SceneNode() {
+	SceneNode(SceneNodeType kind) {
 		position = glm::vec3(0, 0, 0);
 		rotation = glm::vec3(0, 0, 0);
 		scale = glm::vec3(1, 1, 1);
@@ -27,8 +31,7 @@ struct SceneNode {
         vertexArrayObjectID = -1;
         VAOIndexCount = 0;
 
-        nodeType = GEOMETRY;
-
+        nodeType = kind;
 	}
 
 	// A list of all children that belong to this node.
@@ -43,6 +46,11 @@ struct SceneNode {
 	// A transformation matrix representing the transformation of the node's location relative to its parent. This matrix is updated every frame.
 	glm::mat4 currentTransformationMatrix;
 
+    // The model matrix without view projection.
+	glm::mat4 modelMatrix;
+
+    glm::mat3 normalMatrix;
+
 	// The location of the node's reference point
 	glm::vec3 referencePoint;
 
@@ -52,9 +60,27 @@ struct SceneNode {
 
 	// Node type is used to determine how to handle the contents of a node
 	SceneNodeType nodeType;
+
+    // Unique 
+    int lightNodeID;
+
+    // Not relative to parent
+    glm::vec3 lightPosition;
+
+    glm::vec3 lightColor;
+
+    // The texture for this node
+    unsigned int textureID;
+
+    // Normal map 
+    unsigned int textureNormalID;
+
+    // Roughness texture
+    unsigned int roughnessID;
 };
 
-SceneNode* createSceneNode();
+
+SceneNode* createSceneNode(SceneNodeType nodeType);
 void addChild(SceneNode* parent, SceneNode* child);
 void printNode(SceneNode* node);
 int totalChildren(SceneNode* parent);

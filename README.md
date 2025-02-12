@@ -1,20 +1,18 @@
-# TDT4230 - Graphics and Visualization
+# 3d Gaussian Splatting Renderer 
+Final project for the course TDT4230 - Graphics and Visualization.
 
-This is the base code for the NTNU subject TDT4230 assignments. It may also be used for the final project, which we will showcase [here](https://www.idi.ntnu.no/grupper/vis/teaching/)
+Project extends on the base code provided, see `https://github.com/bartvbl/TDT4230-Assignment-1.git`.
 
-## What do i do?
 
-	git clone --recursive https://github.com/bartvbl/TDT4230-Assignment-1.git
+## Install
+
+	git clone --recursive git@github.com:LytixDev/3d-gaussian-splatting.git
 
 Should you forget the `--recursive` bit, just run:
 
 	git submodule update --init
 
 
-### Windows
-
-Install Microsoft Visual Studio Express and CMake.
-You may use CMake-gui or the command-line cmake to generate a Visual Studio solution.
 
 ### Linux:
 
@@ -29,3 +27,6 @@ which is equivalent to
 	cmake ..
 	make
 	./glowbox
+
+### Windows
+Not tested, but may work using MVSC and CMake

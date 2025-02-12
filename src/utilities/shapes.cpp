@@ -5,6 +5,28 @@
 #define M_PI 3.14159265359f
 #endif
 
+Mesh triangle(glm::vec3 scale)
+{
+    Mesh m;
+    m.vertices = {
+        { 0.0f * scale.x,  0.5f * scale.y, 0.0f * scale.z }, // Top
+        { -0.5f * scale.x, -0.5f * scale.y, 0.0f * scale.z }, // Bottom left
+        { 0.5f * scale.x, -0.5f * scale.y, 0.0f * scale.z }   // Bottom right
+    };
+    m.normals = {
+        { 0.0f, 0.0f, 1.0f },
+        { 0.0f, 0.0f, 1.0f },
+        { 0.0f, 0.0f, 1.0f }
+    };
+    m.textureCoordinates = {
+        { 0.5f, 1.0f }, // Top
+        { 0.0f, 0.0f }, // Bottom left
+        { 1.0f, 0.0f }  // Bottom right
+    };
+    m.indices = { 0, 1, 2 };
+    return m;
+}
+
 Mesh cube(glm::vec3 scale, glm::vec2 textureScale, bool tilingTextures, bool inverted, glm::vec3 textureScale3d) {
     glm::vec3 points[8];
     int indices[36];

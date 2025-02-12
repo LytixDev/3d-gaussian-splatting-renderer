@@ -1,8 +1,15 @@
 #include "sceneGraph.hpp"
 #include <iostream>
 
-SceneNode* createSceneNode() {
-	return new SceneNode();
+// Continiously increasing IDs
+static int nextID = 0;
+
+SceneNode* createSceneNode(SceneNodeType nodeType) {
+	SceneNode *sceneNode = new SceneNode(nodeType);
+    if (nodeType == POINT_LIGHT) {
+        sceneNode->lightNodeID = nextID++;
+    }
+    return sceneNode;
 }
 
 // Add a child node to its parent's list of children
@@ -27,11 +34,15 @@ void printNode(SceneNode* node) {
 		"    Location: (%f, %f, %f)\n"
 		"    Reference point: (%f, %f, %f)\n"
 		"    VAO ID: %i\n"
+        "    Texture ID: %d\n"
+		"    Light Node ID: %i\n"
+		"    Light position: (%f, %f, %f)\n"
 		"}\n",
 		int(node->children.size()),
 		node->rotation.x, node->rotation.y, node->rotation.z,
 		node->position.x, node->position.y, node->position.z,
 		node->referencePoint.x, node->referencePoint.y, node->referencePoint.z, 
-		node->vertexArrayObjectID);
+		node->vertexArrayObjectID, node->textureID, node->lightNodeID, node->lightPosition.x,
+        node->lightPosition.y, node->lightPosition.z);
 }
 
