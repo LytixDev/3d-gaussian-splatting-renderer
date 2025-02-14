@@ -11,6 +11,7 @@
 #include <arrrgh.hpp>
 
 
+
 // A callback which allows GLFW to report errors whenever they occur
 static void glfwErrorCallback(int error, const char *description)
 {
@@ -34,7 +35,7 @@ GLFWwindow* initialise()
 
     // Enable the GLFW runtime error callback function defined previously.
     glfwSetErrorCallback(glfwErrorCallback);
-
+    
     // Set additional window options
     glfwWindowHint(GLFW_RESIZABLE, windowResizable);
     glfwWindowHint(GLFW_SAMPLES, windowSamples);  // MSAA
@@ -53,6 +54,7 @@ GLFWwindow* initialise()
     // Let the window be the current OpenGL context and initialise glad
     glfwMakeContextCurrent(window);
     gladLoadGL();
+
 
     // Print various OpenGL information to stdout
     printf("%s: %s\n", glGetString(GL_VENDOR), glGetString(GL_RENDERER));

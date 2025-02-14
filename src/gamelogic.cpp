@@ -24,6 +24,14 @@
 #include "utilities/glfont.h"
 
 
+// TODO: Move
+#include "utilities/camera.hpp"
+Gloom::Camera *camera = new Gloom::Camera(glm::vec3(0.0f, 0.0f, 2.0f), 50.0f, 0.1f);
+
+
+double lastFrameTime = 0.0;  // Change from GLfloat to double for better precision
+
+
 SceneNode* rootNode;
 
 // These are heap allocated, because they should not be initialised at the start of the program
@@ -38,21 +46,21 @@ double mouseSensitivity = 1.0;
 double lastMouseX = windowWidth / 2;
 double lastMouseY = windowHeight / 2;
 
-#define SHADER_CAMERA_LOCATION 6
-glm::vec3 cameraPosition = glm::vec3(0, 2, -20);
-
 #define LIGHT_SOURCES 1
 SceneNode *lightSources[LIGHT_SOURCES];
 
 
 void mouseCallback(GLFWwindow* window, double x, double y) {
-    int windowWidth, windowHeight;
-    glfwGetWindowSize(window, &windowWidth, &windowHeight);
-    glViewport(0, 0, windowWidth, windowHeight);
-
-    glfwSetCursorPos(window, windowWidth / 2, windowHeight / 2);
+    camera->handleCursorPosInput(x, y);
 }
 
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+    camera->handleMouseButtonInputs(button, action);
+}
+
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    camera->handleKeyboardInputs(key, action);
+}
 
 unsigned int imageToTexture(PNGImage image) {
     unsigned int textureID;
@@ -81,8 +89,10 @@ unsigned int imageToTexture(PNGImage image) {
 void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
     options = gameOptions;
 
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, mouseCallback);
+    glfwSetMouseButtonCallback(window, mouseButtonCallback);
+    glfwSetKeyCallback(window, keyCallback);
 
     shader3D = new Gloom::Shader();
     shader3D->makeBasicShader("../res/shaders/simple.vert", "../res/shaders/simple.frag");
@@ -114,20 +124,14 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
 }
 
 void updateFrame(GLFWwindow* window) {
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-    //updateGameLogic(window);
+    double currentTime = glfwGetTime();
+    float deltaTime = static_cast<float>(currentTime - lastFrameTime);
+    lastFrameTime = currentTime;
+    
+    camera->updateCamera(deltaTime);
 
     glm::mat4 projection = glm::perspective(glm::radians(80.0f), float(windowWidth) / float(windowHeight), 0.1f, 350.f);
-
-    // Some math to make the camera move in a nice way
-    float lookRotation = -0.6 / (1 + exp(5)) + 0.3;
-    glm::mat4 cameraTransform =
-                    glm::rotate(0.3f, glm::vec3(1, 0, 0)) *
-                    glm::rotate(lookRotation, glm::vec3(0, 1, 0)) *
-                    glm::translate(-cameraPosition);
-
-    glm::mat4 VP = projection * cameraTransform;
+    glm::mat4 VP = projection * camera->getViewMatrix();
 
     glm::mat4 identity = glm::mat4(1);
     updateNodeTransformations(rootNode, identity, VP);
@@ -203,7 +207,8 @@ void renderNode3D(SceneNode* node) {
 
 void render3D(SceneNode *root) {
     shader3D->activate();
-    glUniform3fv(SHADER_CAMERA_LOCATION, 1, glm::value_ptr(cameraPosition));
+    
+    glUniform3fv(shader3D->getUniformFromName("camera_position"), 1, glm::value_ptr(camera->getPosition()));
 
     // Pass light positions to fragment shader
     for (int i = 0; i < LIGHT_SOURCES; i++) {
@@ -217,8 +222,6 @@ void render3D(SceneNode *root) {
         glUniform3fv(location_color, 1, glm::value_ptr(node->lightColor));
     }
 
-    // Pass ball position to fragment shader
-    // glUniform3fv(shader3D->getUniformFromName("ball_position"), 1, glm::value_ptr(ballNode->position));
     renderNode3D(root);
 }
 
@@ -256,6 +259,13 @@ void render2D(SceneNode *root) {
     //glBindTextureUnit(0, charMapTextureID);
     renderNode2D(root);
 }
+
+
+#define KEY_PRESSED(key) (glfwGetKey(window, (key)) == GLFW_PRESS)
+#define KEY_RELEASED(key) (glfwGetKey(window, (key)) == GLFW_RELEASE)
+
+int lastKeyX = -1;
+int lastKeyZ = -1;
 
 void renderFrame(GLFWwindow* window) {
     int windowWidth, windowHeight;

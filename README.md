@@ -1,7 +1,7 @@
 # 3d Gaussian Splatting Renderer 
 Final project for the course TDT4230 - Graphics and Visualization.
 
-Project extends on the base code provided, see `https://github.com/bartvbl/TDT4230-Assignment-1.git`.
+Project extends the base code provided, see `https://github.com/bartvbl/TDT4230-Assignment-1.git`.
 
 
 ## Install
@@ -16,7 +16,7 @@ Should you forget the `--recursive` bit, just run:
 
 ### Linux:
 
-Make sure you have a C/C++ compiler such as  GCC, CMake and Git.
+Make sure you have a C++ compiler such as GCC, CMake, and Git.
 
 	make run
 
@@ -29,4 +29,4 @@ which is equivalent to
 	./glowbox
 
 ### Windows
-Not tested, but may work using MVSC and CMake
+Not tested, but may work using MSVC and CMake
