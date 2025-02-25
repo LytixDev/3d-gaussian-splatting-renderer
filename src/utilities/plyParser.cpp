@@ -236,4 +236,8 @@ void gaussian_splat_print(GaussianSplat &splat)
     // for (const auto& pos : splat.ws_positions) {
     //     std::cout << "Position: (" << pos.x << ", " << pos.y << ", " << pos.z << ")\n";
     // }
+    
+    // for (const auto& color : splat.colors) {
+    //     std::cout << "Color: (" << color.r << ", " << color.g << ", " << color.b << ")\n";
+    // }
 }

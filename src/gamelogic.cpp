@@ -25,12 +25,14 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/string_cast.hpp> // Enables to_string on glm types, handy for debugging
 
-Gloom::Camera *camera = new Gloom::Camera(glm::vec3(0.0f, 0.0f, 2.0f), 50.0f, 0.1f);
+Gloom::Camera *camera = new Gloom::Camera(glm::vec3(0.3f, 3.5f, 2.5f), 2.0f, 0.075f);
 double lastFrameTime = 0.0;  // Change from GLfloat to double for better precision
 SceneNode* rootNode;
 // These are heap allocated, because they should not be initialised at the start of the program
 Gloom::Shader* shader3D;
 Gloom::Shader* shaderGaussian;
+
+GaussianSplat splat;
 
 
 void mouseCallback(GLFWwindow* window, double x, double y) {
@@ -52,44 +54,62 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     // NOTE: We don't forward any keys to ImGui. Maybe we want to do that later.
 }
 
+GLuint vao, vbo, colorVBO;  // Added a new VBO for colors
 
-
-
-GLuint vao, vbo;
-glm::vec3 gaussianPos = glm::vec3(0.0f, 0.0f, -5.0f); // World position
-
-void setupGaussian() {
+void setupGaussian() 
+{
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
+    glGenBuffers(1, &colorVBO);  // Generate buffer for colors
     
     glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    //glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3), &gaussianPos, GL_STATIC_DRAW);
     
+    // Position buffer setup
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, 
+                 splat.ws_positions.size() * sizeof(glm::vec3), 
+                 splat.ws_positions.data(), 
+                 GL_STATIC_DRAW);
+    
+    // Setup position attribute
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
     glEnableVertexAttribArray(0);
+    
+    // Color buffer setup
+    glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 splat.colors.size() * sizeof(glm::vec3),
+                 splat.colors.data(),
+                 GL_STATIC_DRAW);
+    
+    // Setup color attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glEnableVertexAttribArray(1);
     
     glBindVertexArray(0);
 }
 
-void renderGaussian(glm::vec3 gaussianPos) {
-    glm::mat4 projection = glm::perspective(glm::radians(80.0f), float(windowWidth) / float(windowHeight), 0.1f, 350.f);
+void renderGaussians()
+{
+    // Calculate view projection matrix
+    glm::mat4 projection = glm::perspective(glm::radians(80.0f), 
+                                          float(windowWidth) / float(windowHeight), 
+                                          0.1f, 350.f);
     glm::mat4 VP = projection * camera->getViewMatrix();
-
-    // Create model matrix to place Gaussian at its world position
-    glm::mat4 model = glm::translate(glm::mat4(1.0f), gaussianPos);
-    glm::mat4 MVP = VP * model; // Full transformation
-
-    glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(MVP));
-
+    
+    // Set VP matrix uniform
+    glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(VP));
+    
     glBindVertexArray(vao);
     glEnable(GL_PROGRAM_POINT_SIZE); // Enable point size control
-    glDrawArrays(GL_POINTS, 0, 1);
+    
+    // Draw all Gaussians at once
+    glDrawArrays(GL_POINTS, 0, splat.ws_positions.size());
 }
 
 
 void init_game(GLFWwindow* window) {
-    GaussianSplat splat = gaussian_splat_from_ply_file("../res/ornaments.ply");
+    splat = gaussian_splat_from_ply_file("../res/ornaments.ply");
     gaussian_splat_print(splat);
 
     setupGaussian();
@@ -205,5 +225,5 @@ void render_frame(GLFWwindow* window) {
     renderNode3D(rootNode);
 
     shaderGaussian->activate();
-    renderGaussian(gaussianPos);
+    renderGaussians();
 }
