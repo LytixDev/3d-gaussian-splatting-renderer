@@ -87,14 +87,16 @@ include_directories (src/
                      lib/glm/
                      lib/stb/
                      lib/arrrgh/
-                     lib/SFML/include/)
+                     lib/SFML/include/
+                     lib/imgui/)
 
 
 #
 # Add files
 #
 file (GLOB         VENDORS_SOURCES lib/glad/src/glad.c
-								   lib/lodepng/lodepng.cpp)
+								   lib/lodepng/lodepng.cpp
+                                   lib/imgui/*.cpp)
 file (GLOB_RECURSE PROJECT_HEADERS src/*.hpp
                                    src/*.h)
 file (GLOB_RECURSE PROJECT_SOURCES src/*.cpp

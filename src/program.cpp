@@ -5,7 +5,11 @@
 #include <glm/glm.hpp>
 // glm::translate, glm::rotate, glm::scale, glm::perspective
 #include <glm/gtc/matrix_transform.hpp>
-#include <iostream>
+
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
 #include <SFML/Audio.hpp>
 #include <SFML/System/Time.hpp>
 #include <utilities/shapes.h>
@@ -42,12 +46,30 @@ void runProgram(GLFWwindow* window, CommandLineOptions options)
 	    // Clear colour and depth buffers
 	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
         updateFrame(window);
         renderFrame(window);
+
+		// ImGUI window creation
+        bool b;
+		ImGui::Begin("ImGui Test");
+		// Text that appears in the window
+		ImGui::Text("Hello World!");
+		// Checkbox that appears in the window
+		ImGui::Checkbox("Draw Triangle", &b);
+		// Ends the window
+		ImGui::End();
 
         // Handle other events
         glfwPollEvents();
         handleKeyboardInput(window);
+
+		// Renders the ImGUI elements
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         // Flip buffers
         glfwSwapBuffers(window);

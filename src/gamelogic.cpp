@@ -20,6 +20,8 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/string_cast.hpp> // Enables to_string on glm types, handy for debugging
 
+#include "imgui.h"
+
 #include "utilities/imageLoader.hpp"
 #include "utilities/glfont.h"
 
@@ -52,14 +54,21 @@ SceneNode *lightSources[LIGHT_SOURCES];
 
 void mouseCallback(GLFWwindow* window, double x, double y) {
     camera->handleCursorPosInput(x, y);
+    // Forward to ImGui
+    ImGuiIO& io = ImGui::GetIO();
+    io.MousePos = ImVec2((float)x, (float)y);
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     camera->handleMouseButtonInputs(button, action);
+    // Forward to ImGui
+    ImGuiIO& io = ImGui::GetIO();
+    io.MouseDown[button] = action;
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     camera->handleKeyboardInputs(key, action);
+    // NOTE: We don't forward any keys to ImGui. Maybe we want to do that later.
 }
 
 unsigned int imageToTexture(PNGImage image) {
@@ -89,7 +98,7 @@ unsigned int imageToTexture(PNGImage image) {
 void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
     options = gameOptions;
 
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, mouseCallback);
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetKeyCallback(window, keyCallback);

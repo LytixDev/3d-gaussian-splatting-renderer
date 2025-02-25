@@ -51,7 +51,7 @@ namespace Gloom
         /* Handle mouse button inputs from a callback mechanism */
         void handleMouseButtonInputs(int button, int action)
         {
-            if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+            if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
                 isMousePressed = true;
             }
             else {
