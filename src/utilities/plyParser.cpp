@@ -207,7 +207,11 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
             return splat;
         }
 
-        splat.ws_positions.push_back(glm::vec3(data[0], data[1], data[2]));
+        /* 
+         * If we don't take the -x and -y values, the scene will be upside down for these axes'.
+         * Seems as though it stored in a left-handed system?
+         */
+        splat.ws_positions.push_back(glm::vec3(-data[0], -data[1], data[2]));
         splat.normals.push_back(glm::vec3(data[3], data[4], data[5]));
         splat.colors.push_back(glm::vec3(data[6], data[7], data[8]));
 
