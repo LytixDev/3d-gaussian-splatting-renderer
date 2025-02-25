@@ -9,47 +9,30 @@
 #include <utilities/shapes.h>
 #include <utilities/glutils.h>
 #include <utilities/imageLoader.hpp>
+#include "utilities/imageLoader.hpp"
+#include "utilities/glfont.h"
+#include "utilities/plyParser.hpp"
+#include "utilities/camera.hpp"
 #include <SFML/Audio/Sound.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <fmt/format.h>
 #include "gamelogic.h"
 #include "fmt/core.h"
+#include "imgui.h"
 #include "sceneGraph.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/string_cast.hpp> // Enables to_string on glm types, handy for debugging
 
-#include "imgui.h"
-
-#include "utilities/imageLoader.hpp"
-#include "utilities/glfont.h"
-
-
-// TODO: Move
-#include "utilities/camera.hpp"
-Gloom::Camera *camera = new Gloom::Camera(glm::vec3(0.0f, 0.0f, 2.0f), 50.0f, 0.1f);
-
-
+Gloom::Camera *camera = new Gloom::Camera(glm::vec3(0.3f, 3.5f, 2.5f), 2.0f, 0.075f);
 double lastFrameTime = 0.0;  // Change from GLfloat to double for better precision
-
-
 SceneNode* rootNode;
-
 // These are heap allocated, because they should not be initialised at the start of the program
-sf::SoundBuffer* buffer;
 Gloom::Shader* shader3D;
-Gloom::Shader* shader2D;
+Gloom::Shader* shaderGaussian;
 
-CommandLineOptions options;
-
-// Modify if you want the music to start further on in the track. Measured in seconds.
-double mouseSensitivity = 1.0;
-double lastMouseX = windowWidth / 2;
-double lastMouseY = windowHeight / 2;
-
-#define LIGHT_SOURCES 1
-SceneNode *lightSources[LIGHT_SOURCES];
+GaussianSplat splat;
 
 
 void mouseCallback(GLFWwindow* window, double x, double y) {
@@ -71,32 +54,65 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     // NOTE: We don't forward any keys to ImGui. Maybe we want to do that later.
 }
 
-unsigned int imageToTexture(PNGImage image) {
-    unsigned int textureID;
-    glGenTextures(1, &textureID);
-    glBindTexture(GL_TEXTURE_2D, textureID);
+// NOTE: Only a point cloud right now
+GLuint vao, positionVBO, colorVBO;
 
-    // Copy image into texture
-    glTexImage2D(GL_TEXTURE_2D,
-                 0, // Level of detail. 0 since we are only creating a single texture.
-                 GL_RGBA, // Internal format
-                 image.width, // Width
-                 image.height, // Height
-                 0, // Border
-                 GL_RGBA, // Input format the input data is stored in
-                 GL_UNSIGNED_BYTE, // Data and type per channel
-                 image.pixels.data()); // Image data
+void setup_gaussians()
+{
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &positionVBO);
+    glGenBuffers(1, &colorVBO);
+    
+    glBindVertexArray(vao);
+    
+    // Position buffer setup
+    glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
+    glBufferData(GL_ARRAY_BUFFER, 
+                 splat.ws_positions.size() * sizeof(glm::vec3), 
+                 splat.ws_positions.data(), 
+                 GL_STATIC_DRAW);
+    
+    // Setup position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glEnableVertexAttribArray(0);
+    
+    // Color buffer setup
+    glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 splat.colors.size() * sizeof(glm::vec3),
+                 splat.colors.data(),
+                 GL_STATIC_DRAW);
+    
+    // Setup color attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glEnableVertexAttribArray(1);
+    
+    glBindVertexArray(0);
+}
 
-    glGenerateMipmap(GL_TEXTURE_2D);
-    // Configure the sampling options for the texture
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    return textureID;
+void render_gaussians()
+{
+    // Calculate view projection matrix
+    glm::mat4 projection = glm::perspective(glm::radians(80.0f), 
+                                          float(windowWidth) / float(windowHeight), 
+                                          0.1f, 350.f);
+    glm::mat4 VP = projection * camera->getViewMatrix();
+    // Set VP matrix uniform
+    glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(VP));
+    
+    glBindVertexArray(vao);
+    glEnable(GL_PROGRAM_POINT_SIZE); // Enable point size control
+
+    // Draw all Gaussians at once
+    glDrawArrays(GL_POINTS, 0, splat.ws_positions.size());
 }
 
 
-void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
-    options = gameOptions;
+void init_game(GLFWwindow* window) {
+    splat = gaussian_splat_from_ply_file("../res/ornaments.ply");
+    gaussian_splat_print(splat);
+
+    setup_gaussians();
 
     // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, mouseCallback);
@@ -107,8 +123,9 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
     shader3D->makeBasicShader("../res/shaders/simple.vert", "../res/shaders/simple.frag");
     shader3D->activate();
 
-    shader2D = new Gloom::Shader();
-    shader2D->makeBasicShader("../res/shaders/2d.vert", "../res/shaders/2d.frag");
+    shaderGaussian = new Gloom::Shader();
+    shaderGaussian->makeBasicShader("../res/shaders/gaussian.vert", "../res/shaders/gaussian.frag");
+
 
     rootNode = createSceneNode(GEOMETRY);
 
@@ -121,18 +138,12 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
 
     rootNode->children.push_back(triNode);
 
-    SceneNode *padLight = createSceneNode(POINT_LIGHT);
-    padLight->position = glm::vec3(5.0, 5.0, 20.0);
-    padLight->lightColor = glm::vec3(1.0, 1.0, 1.0);
-    rootNode->children.push_back(padLight);
-    lightSources[padLight->lightNodeID] = padLight;
-
     getTimeDeltaSeconds();
 
     std::cout << fmt::format("Initialized scene with {} SceneNodes.", totalChildren(rootNode)) << std::endl;
 }
 
-void updateFrame(GLFWwindow* window) {
+void update_frame(GLFWwindow* window) {
     double currentTime = glfwGetTime();
     float deltaTime = static_cast<float>(currentTime - lastFrameTime);
     lastFrameTime = currentTime;
@@ -182,18 +193,8 @@ void renderNode3D(SceneNode* node) {
     glUniformMatrix4fv(4, 1, GL_FALSE, glm::value_ptr(node->modelMatrix));
     glUniformMatrix3fv(5, 1, GL_FALSE, glm::value_ptr(node->normalMatrix));
 
-    /* Set normal mapped flag */
-    if (node->nodeType == NORMAL_MAPPED) {
-        glUniform1i(7, 1);
-    } else {
-        glUniform1i(7, 0);
-    }
-
     switch(node->nodeType) {
         case NORMAL_MAPPED:
-            glBindTextureUnit(0, node->textureID);
-            glBindTextureUnit(1, node->textureNormalID);
-            glBindTextureUnit(2, node->roughnessID);
             /* Intentional fallthrough */
         case GEOMETRY:
             if(node->vertexArrayObjectID != -1) {
@@ -214,73 +215,15 @@ void renderNode3D(SceneNode* node) {
     }
 }
 
-void render3D(SceneNode *root) {
-    shader3D->activate();
-    
-    glUniform3fv(shader3D->getUniformFromName("camera_position"), 1, glm::value_ptr(camera->getPosition()));
-
-    // Pass light positions to fragment shader
-    for (int i = 0; i < LIGHT_SOURCES; i++) {
-        SceneNode *node = lightSources[i];
-        auto prefix = fmt::format("light_sources[{}]", i);
-        // Position
-        auto location_position = shader3D->getUniformFromName(prefix + ".position");
-        glUniform3fv(location_position, 1, glm::value_ptr(node->lightPosition));
-        // Color
-        auto location_color = shader3D->getUniformFromName(prefix + ".color");
-        glUniform3fv(location_color, 1, glm::value_ptr(node->lightColor));
-    }
-
-    renderNode3D(root);
-}
-
-void renderNode2D(SceneNode* node) {
-    switch(node->nodeType) {
-        case GEOMETRY_2D: {
-            if (node->vertexArrayObjectID != -1) {
-                glBindVertexArray(node->vertexArrayObjectID);
-                glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
-            }
-        default: break;
-        }
-    }
-
-    for(SceneNode* child : node->children) {
-        renderNode2D(child);
-    }
-}
-
-void render2D(SceneNode *root) {
-    shader2D->activate();
-    /* Orthographic project with center (0,0) at the bottom left corner */
-    glm::mat4 orthographicProjection = glm::ortho(0.0f,
-                                                  (float)windowWidth,
-                                                  0.0f,
-                                                  (float)windowHeight,
-                                                  0.0f, // Near plane
-                                                  1.0f); // Far plane
-    glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(orthographicProjection));
-
-    /* 
-     * NOTE: We only draw text for the 2D part of rendering right now, so we can just set the 
-     * texture here and not dynamically in the scene node switch.
-     */
-    //glBindTextureUnit(0, charMapTextureID);
-    renderNode2D(root);
-}
-
-
-#define KEY_PRESSED(key) (glfwGetKey(window, (key)) == GLFW_PRESS)
-#define KEY_RELEASED(key) (glfwGetKey(window, (key)) == GLFW_RELEASE)
-
-int lastKeyX = -1;
-int lastKeyZ = -1;
-
-void renderFrame(GLFWwindow* window) {
+void render_frame(GLFWwindow* window) {
     int windowWidth, windowHeight;
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
     glViewport(0, 0, windowWidth, windowHeight);
 
-    render3D(rootNode);
-    //render2D(rootNode);
+    shader3D->activate();
+    glUniform3fv(shader3D->getUniformFromName("camera_position"), 1, glm::value_ptr(camera->getPosition()));
+    renderNode3D(rootNode);
+
+    shaderGaussian->activate();
+    render_gaussians();
 }

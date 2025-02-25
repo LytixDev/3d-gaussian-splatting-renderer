@@ -232,4 +232,12 @@ void gaussian_splat_print(GaussianSplat &splat)
     std::cout << "Gaussian Splat Information for " << splat.filename << "\n";
     std::cout << "  Had Error: " << (splat.had_error ? "Yes" : "No") << "\n";
     std::cout << "  Number of Vertices: " << splat.count << "\n";
+
+    // for (const auto& pos : splat.ws_positions) {
+    //     std::cout << "Position: (" << pos.x << ", " << pos.y << ", " << pos.z << ")\n";
+    // }
+    
+    // for (const auto& color : splat.colors) {
+    //     std::cout << "Color: (" << color.r << ", " << color.g << ", " << color.b << ")\n";
+    // }
 }
