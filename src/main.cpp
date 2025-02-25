@@ -14,6 +14,8 @@
 #include <cstdlib>
 #include <arrrgh.hpp>
 
+#include "utilities/plyParser.hpp"
+
 
 
 // A callback which allows GLFW to report errors whenever they occur
@@ -104,6 +106,9 @@ int main(int argc, const char* argb[])
     {
         return 0;
     }
+
+    GaussianSplat splat = gaussian_splat_from_ply_file("../res/ornaments.ply");
+    gaussian_splat_print(splat);
 
     CommandLineOptions options;
     options.enableMusic    = enableMusic.value();
