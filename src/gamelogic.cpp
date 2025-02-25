@@ -9,44 +9,31 @@
 #include <utilities/shapes.h>
 #include <utilities/glutils.h>
 #include <utilities/imageLoader.hpp>
+#include "utilities/imageLoader.hpp"
+#include "utilities/glfont.h"
+#include "utilities/plyParser.hpp"
+#include "utilities/camera.hpp"
 #include <SFML/Audio/Sound.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <fmt/format.h>
 #include "gamelogic.h"
 #include "fmt/core.h"
+#include "imgui.h"
 #include "sceneGraph.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/string_cast.hpp> // Enables to_string on glm types, handy for debugging
 
-#include "imgui.h"
-
-#include "utilities/imageLoader.hpp"
-#include "utilities/glfont.h"
-
-
-// TODO: Move
-#include "utilities/camera.hpp"
 Gloom::Camera *camera = new Gloom::Camera(glm::vec3(0.0f, 0.0f, 2.0f), 50.0f, 0.1f);
 
-
 double lastFrameTime = 0.0;  // Change from GLfloat to double for better precision
-
 
 SceneNode* rootNode;
 
 // These are heap allocated, because they should not be initialised at the start of the program
-sf::SoundBuffer* buffer;
 Gloom::Shader* shader3D;
 Gloom::Shader* shader2D;
-
-CommandLineOptions options;
-
-// Modify if you want the music to start further on in the track. Measured in seconds.
-double mouseSensitivity = 1.0;
-double lastMouseX = windowWidth / 2;
-double lastMouseY = windowHeight / 2;
 
 #define LIGHT_SOURCES 1
 SceneNode *lightSources[LIGHT_SOURCES];
@@ -95,8 +82,9 @@ unsigned int imageToTexture(PNGImage image) {
 }
 
 
-void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
-    options = gameOptions;
+void init_game(GLFWwindow* window) {
+    GaussianSplat splat = gaussian_splat_from_ply_file("../res/ornaments.ply");
+    gaussian_splat_print(splat);
 
     // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, mouseCallback);
@@ -132,7 +120,7 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
     std::cout << fmt::format("Initialized scene with {} SceneNodes.", totalChildren(rootNode)) << std::endl;
 }
 
-void updateFrame(GLFWwindow* window) {
+void update_frame(GLFWwindow* window) {
     double currentTime = glfwGetTime();
     float deltaTime = static_cast<float>(currentTime - lastFrameTime);
     lastFrameTime = currentTime;
@@ -276,7 +264,7 @@ void render2D(SceneNode *root) {
 int lastKeyX = -1;
 int lastKeyZ = -1;
 
-void renderFrame(GLFWwindow* window) {
+void render_frame(GLFWwindow* window) {
     int windowWidth, windowHeight;
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
     glViewport(0, 0, windowWidth, windowHeight);

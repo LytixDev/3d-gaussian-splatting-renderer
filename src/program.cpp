@@ -19,7 +19,7 @@
 #include <utilities/timeutils.h>
 
 
-void runProgram(GLFWwindow* window, CommandLineOptions options)
+void run_program(GLFWwindow* window)
 {
     // Enable depth (Z) buffer (accept "closest" fragment)
     glEnable(GL_DEPTH_TEST);
@@ -38,11 +38,10 @@ void runProgram(GLFWwindow* window, CommandLineOptions options)
     // Set default colour after clearing the colour buffer
     glClearColor(0.3f, 0.5f, 0.8f, 1.0f);
 
-	initGame(window, options);
+	init_game(window);
 
     // Rendering Loop
-    while (!glfwWindowShouldClose(window))
-    {
+    while (!glfwWindowShouldClose(window)) {
 	    // Clear colour and depth buffers
 	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -50,8 +49,8 @@ void runProgram(GLFWwindow* window, CommandLineOptions options)
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-        updateFrame(window);
-        renderFrame(window);
+        update_frame(window);
+        render_frame(window);
 
 		// ImGUI window creation
         bool b;
@@ -63,7 +62,7 @@ void runProgram(GLFWwindow* window, CommandLineOptions options)
 		// Ends the window
 		ImGui::End();
 
-        // Handle other events
+        // Handle input events
         glfwPollEvents();
         handleKeyboardInput(window);
 
@@ -80,8 +79,7 @@ void runProgram(GLFWwindow* window, CommandLineOptions options)
 void handleKeyboardInput(GLFWwindow* window)
 {
     // Use escape key for terminating the GLFW window
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-    {
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
 }

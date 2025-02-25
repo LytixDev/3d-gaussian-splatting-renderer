@@ -4,6 +4,6 @@
 #include "sceneGraph.hpp"
 
 void updateNodeTransformations(SceneNode* node, glm::mat4 transformationThusFar, glm::mat4 VP);
-void initGame(GLFWwindow* window, CommandLineOptions options);
-void updateFrame(GLFWwindow* window);
-void renderFrame(GLFWwindow* window);
+void init_game(GLFWwindow* window);
+void update_frame(GLFWwindow* window);
+void render_frame(GLFWwindow* window);
