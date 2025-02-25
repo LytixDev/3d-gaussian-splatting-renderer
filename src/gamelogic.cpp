@@ -54,18 +54,19 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     // NOTE: We don't forward any keys to ImGui. Maybe we want to do that later.
 }
 
-GLuint vao, vbo, colorVBO;  // Added a new VBO for colors
+// NOTE: Only a point cloud right now
+GLuint vao, positionVBO, colorVBO;
 
-void setupGaussian() 
+void setup_gaussians()
 {
     glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glGenBuffers(1, &colorVBO);  // Generate buffer for colors
+    glGenBuffers(1, &positionVBO);
+    glGenBuffers(1, &colorVBO);
     
     glBindVertexArray(vao);
     
     // Position buffer setup
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
     glBufferData(GL_ARRAY_BUFFER, 
                  splat.ws_positions.size() * sizeof(glm::vec3), 
                  splat.ws_positions.data(), 
@@ -89,20 +90,19 @@ void setupGaussian()
     glBindVertexArray(0);
 }
 
-void renderGaussians()
+void render_gaussians()
 {
     // Calculate view projection matrix
     glm::mat4 projection = glm::perspective(glm::radians(80.0f), 
                                           float(windowWidth) / float(windowHeight), 
                                           0.1f, 350.f);
     glm::mat4 VP = projection * camera->getViewMatrix();
-    
     // Set VP matrix uniform
     glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(VP));
     
     glBindVertexArray(vao);
     glEnable(GL_PROGRAM_POINT_SIZE); // Enable point size control
-    
+
     // Draw all Gaussians at once
     glDrawArrays(GL_POINTS, 0, splat.ws_positions.size());
 }
@@ -112,7 +112,7 @@ void init_game(GLFWwindow* window) {
     splat = gaussian_splat_from_ply_file("../res/ornaments.ply");
     gaussian_splat_print(splat);
 
-    setupGaussian();
+    setup_gaussians();
 
     // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, mouseCallback);
@@ -225,5 +225,5 @@ void render_frame(GLFWwindow* window) {
     renderNode3D(rootNode);
 
     shaderGaussian->activate();
-    renderGaussians();
+    render_gaussians();
 }

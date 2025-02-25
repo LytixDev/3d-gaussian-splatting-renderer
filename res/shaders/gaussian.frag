@@ -1,9 +1,10 @@
 #version 430 core
-in vec3 fragColor;
-out vec4 FragColor;
+in vec3 frag_color;
+out vec4 frag_color_out;
 
 void main() {
+    // NOTE: When we create the ellipsis, this can go
     float dist = length(gl_PointCoord - vec2(0.5)); // Circular alpha mask
     if (dist > 0.5) discard; // Soft edges for the splat
-    FragColor = vec4(fragColor, 1.0); // Use the processed color
+    frag_color_out = vec4(frag_color, 1.0);
 }

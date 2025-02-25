@@ -1,22 +1,19 @@
 #version 430 core
-layout (location = 0) in vec3 aPosition; // Gaussian position in world space
-layout (location = 1) in vec3 aColor;    // Gaussian color
+layout (location = 0) in vec3 position_ws;
+layout (location = 1) in vec3 color;
 
 uniform layout(location = 3) mat4 VP;
 
-// Pass color to fragment shader
-out vec3 fragColor;
+out vec3 frag_color;
 
-// Function to process colors that may be outside 0-1 range
-vec3 processColor(vec3 inputColor) {
-    // Tone mapping approach
-    return inputColor / (vec3(1.0) + abs(inputColor));
+// NOTE: The color is stored store as rgb from 0 - 1, but some srgb stuff. Temporary tone mapping.
+vec3 tone_map(vec3 c) {
+    return c / (vec3(1.0) + abs(c));
 }
 
 void main() {
-    gl_Position = VP * vec4(aPosition, 1.0); // Transform to clip space
-    gl_PointSize = 10.0; // Set a fixed size for all Gaussians
+    gl_Position = VP * vec4(position_ws, 1.0);
+    gl_PointSize = 10.0;
     
-    // Process the unusual color format
-    fragColor = processColor(aColor);
+    frag_color = tone_map(color);
 }
