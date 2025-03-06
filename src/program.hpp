@@ -7,8 +7,22 @@
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
 #include <string>
+#include <vector>
 #include <utilities/window.hpp>
+#include <utilities/plyParser.hpp>
 
+
+typedef struct {
+    std::string current_model;
+    std::vector<std::string> all_models;
+    GaussianSplat loaded_model;
+    // If true then the renderer will start to render the loaded_model and set the change_model 
+    // flag back to false
+    bool change_model = false;
+    bool is_loading_model = false;
+    
+    //std::mutex model_mutex;
+} ProgramState;
 
 // Main OpenGL program
 void run_program(GLFWwindow* window);

@@ -109,10 +109,9 @@ void render_gaussians()
 }
 
 
-void init_game(GLFWwindow* window) {
-    splat = gaussian_splat_from_ply_file("../res/bb8.ply");
+void init_game(GLFWwindow* window, ProgramState state) {
+    splat = gaussian_splat_from_ply_file(state.current_model);
     gaussian_splat_print(splat);
-
     setup_gaussians();
 
     // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -144,7 +143,15 @@ void init_game(GLFWwindow* window) {
     std::cout << fmt::format("Initialized scene with {} SceneNodes.", totalChildren(rootNode)) << std::endl;
 }
 
-void update_frame(GLFWwindow* window) {
+void update_frame(GLFWwindow* window, ProgramState *state) {
+    if (state->change_model) {
+        state->change_model = false;
+        splat = state->loaded_model;
+        //std::cout << "Changing model!" << std::endl;
+        //gaussian_splat_print(splat);
+        setup_gaussians();
+    }
+
     double currentTime = glfwGetTime();
     float deltaTime = static_cast<float>(currentTime - lastFrameTime);
     lastFrameTime = currentTime;
