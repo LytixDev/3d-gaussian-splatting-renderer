@@ -1,5 +1,6 @@
 // Local headers
 #include "program.hpp"
+#include "utilities/plyParser.hpp"
 #include "utilities/window.hpp"
 #include "gamelogic.h"
 #include <glm/glm.hpp>
@@ -18,6 +19,119 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <utilities/timeutils.h>
 
+#include <thread>
+#include <filesystem>
+#include <iostream>
+
+namespace fs = std::filesystem;
+
+
+static std::vector<std::string> list_ply_files(const std::string& directory) {
+    std::vector<std::string> files;
+    for (const auto& entry : fs::directory_iterator(directory)) {
+        if (entry.path().extension() == ".ply") {
+            files.push_back(entry.path().string());
+        }
+    }
+    return files;
+}
+
+
+static void imgui_draw(ProgramState *state)
+{
+    // Find currently selected model so we can default the dropdown list of models to it
+    size_t selected_model_index = 0;
+    for (size_t i = 0; i < state->all_models.size(); i++) {
+        if (state->all_models[i] == state->current_model) {
+            selected_model_index = i;
+            break;
+        }
+    }
+
+    bool b;
+    ImGui::Begin("Program Settings");
+    ImGui::Text("Hello World!");
+    ImGui::Checkbox("Draw Triangle", &b);
+    
+    // Display loading thingy if a model is currently being loaded
+    if (state->is_loading_model) {
+        ImGui::Text("Loading model... Please wait");
+        ImGui::SameLine();
+        float time = ImGui::GetTime();
+        char spinner[4] = {"|/-\\"[(int)(time * 10) % 4], 0};
+        ImGui::Text("%s", spinner);
+    }
+
+    // TODO: For large models, we could consider caching the parsed splat file
+    if (!state->all_models.empty()) {
+        char *preview_value = (char *)state->all_models[selected_model_index].c_str();
+        if (ImGui::BeginCombo("Select Model", preview_value)) {
+            for (size_t i = 0; i < state->all_models.size(); i++) {
+                bool is_selected = selected_model_index == i;
+                // Disable selection if currently loading a model
+                if (!state->is_loading_model && 
+                    ImGui::Selectable(state->all_models[i].c_str(), is_selected) &&
+                    selected_model_index != i) {
+                    // This path is only taken if a new model is selected and no other models
+                    // are already loading. Since we only allow one thread we don't need
+                    // any synchronization mechanisms here.
+                    selected_model_index = i;
+                    std::string selected_model = state->all_models[i];
+                    
+                    // Create a new detatched thread for loading the splat file
+                    state->is_loading_model = true;
+                    std::thread loading_thread([state, selected_model]() {
+                        GaussianSplat loaded_model = gaussian_splat_from_ply_file(selected_model);
+                        std::cout << "Loaded new model:" << std::endl;
+                        gaussian_splat_print(loaded_model);
+                        state->loaded_model = loaded_model;
+                        state->current_model = selected_model;
+                        state->change_model = true;
+                        state->is_loading_model = false;
+                    });
+                    loading_thread.detach();
+                }
+
+                if (is_selected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+    }
+
+    // Display any warnings or errors for the currently chosen model
+    if (state->loaded_model.had_error) {
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Model loaded with errors:");
+        if (ImGui::BeginChild("ModelErrors", ImVec2(0, 100), true)) {
+            for (const auto& message : state->loaded_model.warning_and_error_messages) {
+                // TODO: should probably have a tag or something on the error message
+                //       stupid to have to to string compares all the time
+
+                // Color code warnings and errors differently
+                if (message.find("Warning:") != std::string::npos) {
+                    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "%s", message.c_str());
+                } else if (message.find("Error:") != std::string::npos) {
+                    ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "%s", message.c_str());
+                } else {
+                    ImGui::Text("%s", message.c_str());
+                }
+            }
+            ImGui::EndChild();
+        }
+    } else if (!state->loaded_model.warning_and_error_messages.empty()) {
+        // No errors, but some warnings
+        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Model loaded with warnings:");
+        if (ImGui::BeginChild("ModelWarnings", ImVec2(0, 100), true)) {
+            for (const auto& message : state->loaded_model.warning_and_error_messages) {
+                ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "%s", message.c_str());
+            }
+            ImGui::EndChild();
+        }
+    }
+
+    ImGui::End();
+}
 
 void run_program(GLFWwindow* window)
 {
@@ -26,7 +140,7 @@ void run_program(GLFWwindow* window)
     glDepthFunc(GL_LESS);
 
     // Configure miscellaneous OpenGL settings
-    // glEnable(GL_CULL_FACE); TODO: add back?
+    glEnable(GL_CULL_FACE);
 
     // Disable built-in dithering
     glDisable(GL_DITHER);
@@ -38,7 +152,12 @@ void run_program(GLFWwindow* window)
     // Set default colour after clearing the colour buffer
     glClearColor(0.3f, 0.5f, 0.8f, 1.0f);
 
-	init_game(window);
+    // Initialise global program state
+    ProgramState state;
+    state.all_models = list_ply_files("../res/");
+    state.current_model = state.all_models.at(0);
+
+	init_game(window, state);
 
     // Rendering Loop
     while (!glfwWindowShouldClose(window)) {
@@ -49,18 +168,10 @@ void run_program(GLFWwindow* window)
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-        update_frame(window);
+        update_frame(window, &state);
         render_frame(window);
 
-		// ImGUI window creation
-        bool b;
-		ImGui::Begin("ImGui Test");
-		// Text that appears in the window
-		ImGui::Text("Hello World!");
-		// Checkbox that appears in the window
-		ImGui::Checkbox("Draw Triangle", &b);
-		// Ends the window
-		ImGui::End();
+        imgui_draw(&state);
 
         // Handle input events
         glfwPollEvents();

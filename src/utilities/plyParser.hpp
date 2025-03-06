@@ -31,6 +31,8 @@ typedef struct {
 typedef struct {
     std::string filename;
     bool had_error;
+    std::vector<std::string> warning_and_error_messages;
+
     /* Number of "vertices" */
     size_t count;
     /* In world-space coordinates */

@@ -9,6 +9,7 @@
 #include <utilities/shapes.h>
 #include <utilities/glutils.h>
 #include <utilities/imageLoader.hpp>
+#include "glm/fwd.hpp"
 #include "utilities/imageLoader.hpp"
 #include "utilities/glfont.h"
 #include "utilities/plyParser.hpp"
@@ -25,7 +26,7 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/string_cast.hpp> // Enables to_string on glm types, handy for debugging
 
-Gloom::Camera *camera = new Gloom::Camera(glm::vec3(0.3f, 3.5f, 2.5f), 2.0f, 0.075f);
+Gloom::Camera *camera = new Gloom::Camera(glm::vec3(0.3f, 0.0f, 2.5f), 2.0f, 0.075f);
 double lastFrameTime = 0.0;  // Change from GLfloat to double for better precision
 SceneNode* rootNode;
 // These are heap allocated, because they should not be initialised at the start of the program
@@ -108,10 +109,9 @@ void render_gaussians()
 }
 
 
-void init_game(GLFWwindow* window) {
-    splat = gaussian_splat_from_ply_file("../res/ornaments.ply");
+void init_game(GLFWwindow* window, ProgramState state) {
+    splat = gaussian_splat_from_ply_file(state.current_model);
     gaussian_splat_print(splat);
-
     setup_gaussians();
 
     // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -143,7 +143,15 @@ void init_game(GLFWwindow* window) {
     std::cout << fmt::format("Initialized scene with {} SceneNodes.", totalChildren(rootNode)) << std::endl;
 }
 
-void update_frame(GLFWwindow* window) {
+void update_frame(GLFWwindow* window, ProgramState *state) {
+    if (state->change_model) {
+        state->change_model = false;
+        splat = state->loaded_model;
+        //std::cout << "Changing model!" << std::endl;
+        //gaussian_splat_print(splat);
+        setup_gaussians();
+    }
+
     double currentTime = glfwGetTime();
     float deltaTime = static_cast<float>(currentTime - lastFrameTime);
     lastFrameTime = currentTime;
