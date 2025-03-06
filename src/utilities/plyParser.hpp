@@ -47,6 +47,7 @@ typedef struct {
 } GaussianSplat;
 
 GaussianSplat gaussian_splat_from_ply_file(std::string filename);
+GaussianSplat gaussian_splat_from_splat_file(std::string filename);
 
 void gaussian_splat_print(GaussianSplat &splat);
 

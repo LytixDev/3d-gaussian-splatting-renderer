@@ -242,6 +242,124 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
     return splat;
 }
 
+GaussianSplat gaussian_splat_from_splat_file(std::string filename)
+{
+    GaussianSplat splat;
+    splat.filename = std::filesystem::path(filename).filename().string();
+    splat.had_error = false;
+
+    std::ifstream file(filename, std::ios::binary);
+    if (!file.is_open()) {
+        splat.warning_and_error_messages.push_back("Error: Could not open file " + filename);
+        splat.had_error = true;
+        return splat;
+    }
+
+    // Get file size to help determine number of vertices
+    file.seekg(0, std::ios::end);
+    std::streamsize file_size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    // Each vertex in the .splat format consists of:
+    // - 3 floats for position (12 bytes)
+    // - 3 floats for scales (12 bytes)
+    // - 4 uint8_t for colors (4 bytes)
+    // - 4 uint8_t for rotation (4 bytes)
+    // Total: 32 bytes per vertex
+    const size_t bytes_per_vertex = 32;
+    
+    if (file_size % bytes_per_vertex != 0) {
+        splat.warning_and_error_messages.push_back("Error: File size is not a multiple of vertex size (32 bytes)");
+        splat.had_error = true;
+        return splat;
+    }
+
+    size_t vertex_count = file_size / bytes_per_vertex;
+    splat.count = vertex_count;
+
+    // Reserve space for all the data
+    splat.ws_positions.reserve(vertex_count);
+    splat.normals.reserve(vertex_count); // Not present in .splat format, but keeping for compatibility
+    splat.colors.reserve(vertex_count);
+    splat.shs.reserve(vertex_count); // Will be initialized with zeros
+    splat.opacities.reserve(vertex_count);
+    splat.scales.reserve(vertex_count);
+    splat.rotations.reserve(vertex_count);
+
+    // Temporary buffers for reading data
+    float position[3];
+    float scales[3];
+    uint8_t color_data[4];
+    uint8_t rotation_data[4];
+
+    for (size_t i = 0; i < vertex_count; i++) {
+        // Read position
+        file.read(reinterpret_cast<char*>(position), sizeof(float) * 3);
+        // NOTE: Same as .ply files, coordinate system seem to be left handed
+        splat.ws_positions.push_back(glm::vec3(-position[0], -position[1], position[2]));
+
+        // Read scales
+        file.read(reinterpret_cast<char*>(scales), sizeof(float) * 3);
+        splat.scales.push_back(glm::vec3(scales[0], scales[1], scales[2]));
+
+        // Read color (4 uint8_t, normalized to 0-1)
+        file.read(reinterpret_cast<char*>(color_data), sizeof(uint8_t) * 4);
+        splat.colors.push_back(glm::vec3(
+            color_data[0] / 255.0f,
+            color_data[1] / 255.0f,
+            color_data[2] / 255.0f
+        ));
+        splat.opacities.push_back(color_data[3] / 255.0f);
+
+        // Read rotation (4 uint8_t, denormalized from 0-255 to -1 to 1)
+        file.read(reinterpret_cast<char*>(rotation_data), sizeof(uint8_t) * 4);
+        glm::vec4 rot(
+            (rotation_data[0] - 128.0f) / 128.0f,
+            (rotation_data[1] - 128.0f) / 128.0f,
+            (rotation_data[2] - 128.0f) / 128.0f,
+            (rotation_data[3] - 128.0f) / 128.0f
+        );
+        
+        // Normalize the quaternion
+        float length = glm::length(rot);
+        if (length > 0.0f) {
+            rot /= length;
+        }
+        splat.rotations.push_back(rot);
+
+        // NOTE: no idea
+        // Add dummy normals
+        splat.normals.push_back(glm::vec3(0.0f, 0.0f, 1.0f));
+        // Add dummy spherical harmonics
+        SphericalHarmonics sh;
+        for (int j = 0; j < SPHERICAL_HARMONICS_COEFFS_COUNT; j++) {
+            sh.coeffs[j] = 0.0f;
+        }
+        // NOTE: Reversed SH_C0 from reference code, no idea if works
+        const float SH_C0 = 0.28209479177387814f;
+        sh.coeffs[0] = (splat.colors.back().r - 0.5f) / SH_C0;
+        sh.coeffs[1] = (splat.colors.back().g - 0.5f) / SH_C0;
+        sh.coeffs[2] = (splat.colors.back().b - 0.5f) / SH_C0;
+        splat.shs.push_back(sh);
+
+        if (!file) {
+            std::stringstream ss;
+            ss << "Error: Failed to read vertex data at index " << i;
+            splat.warning_and_error_messages.push_back(ss.str());
+            splat.had_error = true;
+            return splat;
+        }
+    }
+
+    file.close();
+
+    for (auto message : splat.warning_and_error_messages) {
+        std::cout << message << std::endl;
+    }
+
+    return splat;
+}
+
 
 void gaussian_splat_print(GaussianSplat &splat)
 {
@@ -257,3 +375,4 @@ void gaussian_splat_print(GaussianSplat &splat)
     //     std::cout << "Color: (" << color.r << ", " << color.g << ", " << color.b << ")\n";
     // }
 }
+
