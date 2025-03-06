@@ -110,7 +110,7 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
 
     std::ifstream file(filename);
     if (!file.is_open()) {
-        std::cerr << "Error: Could not open file " << filename << std::endl;
+        splat.warning_and_error_messages.push_back("Error: Could not open file " + filename);
         splat.had_error = true;
         return splat;
     }
@@ -118,7 +118,7 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
     /* Expect first line to be "ply" */
     std::vector<std::string> tokens = next_line_tokens(file);
     if (tokens[0] != "ply") {
-        std::cerr << "Error: Unable to parse .ply file as it does not start with 'ply'" << std::endl;
+        splat.warning_and_error_messages.push_back("Error: Unable to parse .ply file as it does not start with 'ply'");
         splat.had_error = true;
         return splat;
     }
@@ -131,12 +131,12 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
         std::string specifier = tokens[0];
         if (specifier == "end_header") { break; }
         if (specifier == "error") {
-            std::cerr << "Expected whitespace in line in header" << std::endl;
+            splat.warning_and_error_messages.push_back("Expected whitespace in line in header");
             splat.had_error = true;
             return splat;
         }
         if (tokens.size() != 3) { 
-            std::cerr << "Error: expected each line in the header to have 3 words separated by whitespace." << std::endl;
+            splat.warning_and_error_messages.push_back("Error: expected each line in the header to have 3 words separated by whitespace.");
             splat.had_error = true;
             return splat;
         }
@@ -144,7 +144,7 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
         if (specifier == "format") {
             auto format = tokens[1];
             if (format != "binary_little_endian") {
-                std::cerr << "Error: Only binary_little_endian .ply format, not " << format << std::endl;
+                splat.warning_and_error_messages.push_back("Error: Only binary_little_endian .ply format, not " + format);
                 splat.had_error = true;
                 return splat;
             }
@@ -153,14 +153,14 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
             if (element_kind == "vertex") {
                 vertices = std::stoi(tokens[2]);
             } else {
-                std::cerr << "Warning: Unrecognized element kind " << element_kind << std::endl;
+                splat.warning_and_error_messages.push_back("Warning: Unrecognized element kind " + element_kind);
             }
         } else if (specifier == "property") {
             auto datatype = tokens[1];
             auto property_name = tokens[2];
             /* We expect all properties to be of type float */
             if (datatype != "float") {
-                std::cerr << "Error: Unrecognized property, ignoring " << property_name << std::endl;
+                splat.warning_and_error_messages.push_back("Error: Unrecognized property, ignoring " + property_name);
                 splat.had_error = true;
                 return splat;
             } 
@@ -171,8 +171,10 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
              * the normals (nx, ny, nz vs nnx, nny, nnz). 
              */
             if (expected_property_name != property_name) {
-                std::cerr << "Warning: Expected property " << property_count << " to have name "
-                    << expected_property_name << " but got " << property_name << std::endl;
+                std::stringstream ss;
+                ss << "Warning: Expected property " << property_count << " to have name "
+                   << expected_property_name << " but got " << property_name;
+                splat.warning_and_error_messages.push_back(ss.str());
             }
             property_count++;
         } 
@@ -180,12 +182,14 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
 
     /* Make sure we parsed a vertices count and that we have the expected number of properties */
     if (vertices == -1) {
-        std::cerr << "Error: .ply does not contain a vertex number" << std::endl;
+        splat.warning_and_error_messages.push_back("Error: .ply does not contain a vertex number");
         splat.had_error = true;
         return splat;
     }
     if (property_count !=  EXPECTED_PROPERTIES_COUNT) {
-        std::cerr << "Error: expecetd " << EXPECTED_PROPERTIES_COUNT << " but got " << property_count << std::endl;
+        std::stringstream ss;
+        ss << "Error: expected " << EXPECTED_PROPERTIES_COUNT << " but got " << property_count;
+        splat.warning_and_error_messages.push_back(ss.str());
     }
 
     splat.count = vertices;
@@ -202,7 +206,9 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
     for (int i = 0; i < vertices; i++) {
         file.read(reinterpret_cast<char*>(data), sizeof(float) * EXPECTED_PROPERTIES_COUNT);
         if (!file) {
-            std::cerr << "Error: Failed to read vertex data at index " << i << std::endl;
+            std::stringstream ss;
+            ss << "Error: Failed to read vertex data at index " << i;
+            splat.warning_and_error_messages.push_back(ss.str());
             splat.had_error = true;
             return splat;
         }
@@ -227,6 +233,12 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
     }
 
     file.close();
+
+    // TODO: Optional print flag maybe
+    for (auto message : splat.warning_and_error_messages) {
+        std::cout << message << std::endl;
+    }
+
     return splat;
 }
 

@@ -100,6 +100,36 @@ static void imgui_draw(ProgramState *state)
         }
     }
 
+    // Display any warnings or errors for the currently chosen model
+    if (state->loaded_model.had_error) {
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Model loaded with errors:");
+        if (ImGui::BeginChild("ModelErrors", ImVec2(0, 100), true)) {
+            for (const auto& message : state->loaded_model.warning_and_error_messages) {
+                // TODO: should probably have a tag or something on the error message
+                //       stupid to have to to string compares all the time
+
+                // Color code warnings and errors differently
+                if (message.find("Warning:") != std::string::npos) {
+                    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "%s", message.c_str());
+                } else if (message.find("Error:") != std::string::npos) {
+                    ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "%s", message.c_str());
+                } else {
+                    ImGui::Text("%s", message.c_str());
+                }
+            }
+            ImGui::EndChild();
+        }
+    } else if (!state->loaded_model.warning_and_error_messages.empty()) {
+        // No errors, but some warnings
+        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Model loaded with warnings:");
+        if (ImGui::BeginChild("ModelWarnings", ImVec2(0, 100), true)) {
+            for (const auto& message : state->loaded_model.warning_and_error_messages) {
+                ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "%s", message.c_str());
+            }
+            ImGui::EndChild();
+        }
+    }
+
     ImGui::End();
 }
 
@@ -110,7 +140,7 @@ void run_program(GLFWwindow* window)
     glDepthFunc(GL_LESS);
 
     // Configure miscellaneous OpenGL settings
-    // glEnable(GL_CULL_FACE); TODO: add back?
+    glEnable(GL_CULL_FACE);
 
     // Disable built-in dithering
     glDisable(GL_DITHER);
@@ -124,8 +154,8 @@ void run_program(GLFWwindow* window)
 
     // Initialise global program state
     ProgramState state;
-    state.current_model = "../res/gingerbread_house.ply";
     state.all_models = list_ply_files("../res/");
+    state.current_model = state.all_models.at(0);
 
 	init_game(window, state);
 
