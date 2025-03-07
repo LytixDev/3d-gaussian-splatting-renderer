@@ -102,7 +102,7 @@ void render_gaussians()
     glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(VP));
     
     glBindVertexArray(vao);
-    glEnable(GL_PROGRAM_POINT_SIZE); // Enable point size control
+    //glEnable(GL_PROGRAM_POINT_SIZE); // Enable point size control
 
     // Draw all Gaussians at once
     glDrawArrays(GL_POINTS, 0, splat.ws_positions.size());
@@ -110,8 +110,8 @@ void render_gaussians()
 
 
 void init_game(GLFWwindow* window, ProgramState state) {
-    splat = gaussian_splat_from_ply_file(state.current_model);
-    gaussian_splat_print(splat);
+    splat = state.loaded_model;
+    //gaussian_splat_print(splat);
     setup_gaussians();
 
     // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
