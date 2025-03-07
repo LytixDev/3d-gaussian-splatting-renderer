@@ -26,14 +26,25 @@
 namespace fs = std::filesystem;
 
 
-static std::vector<std::string> list_ply_files(const std::string& directory) {
+static std::vector<std::string> list_ply_and_splat_files(const std::string& directory) {
     std::vector<std::string> files;
     for (const auto& entry : fs::directory_iterator(directory)) {
-        if (entry.path().extension() == ".ply") {
+        if (entry.path().extension() == ".ply" || entry.path().extension() == ".splat") {
             files.push_back(entry.path().string());
         }
     }
     return files;
+}
+
+static void load_model(ProgramState *state, std::string model_path)
+{
+    GaussianSplat loaded_model = gaussian_splat_from_file(model_path);
+    std::cout << "Loaded new model:" << std::endl;
+    gaussian_splat_print(loaded_model);
+    state->loaded_model = loaded_model;
+    state->current_model = model_path;
+    state->change_model = true;
+    state->is_loading_model = false;
 }
 
 
@@ -48,10 +59,10 @@ static void imgui_draw(ProgramState *state)
         }
     }
 
-    bool b;
     ImGui::Begin("Program Settings");
-    ImGui::Text("Hello World!");
-    ImGui::Checkbox("Draw Triangle", &b);
+    float fps = ImGui::GetIO().Framerate;
+    float delta_time = ImGui::GetIO().DeltaTime * 1000.0f;
+    ImGui::Text("FPS: %.1f | Frametime: %.3f ms", fps, delta_time);
     
     // Display loading thingy if a model is currently being loaded
     if (state->is_loading_model) {
@@ -81,13 +92,7 @@ static void imgui_draw(ProgramState *state)
                     // Create a new detatched thread for loading the splat file
                     state->is_loading_model = true;
                     std::thread loading_thread([state, selected_model]() {
-                        GaussianSplat loaded_model = gaussian_splat_from_ply_file(selected_model);
-                        std::cout << "Loaded new model:" << std::endl;
-                        gaussian_splat_print(loaded_model);
-                        state->loaded_model = loaded_model;
-                        state->current_model = selected_model;
-                        state->change_model = true;
-                        state->is_loading_model = false;
+                        load_model(state, selected_model);
                     });
                     loading_thread.detach();
                 }
@@ -98,6 +103,12 @@ static void imgui_draw(ProgramState *state)
             }
             ImGui::EndCombo();
         }
+    }
+
+    // Display data for the currently chosen model
+    if (ImGui::CollapsingHeader("Model Statistics")) {
+        ImGui::Text("Vertex Count: %zu", state->loaded_model.count);
+        ImGui::Text("Load time: %f (ms)", state->loaded_model.load_time_in_ms);
     }
 
     // Display any warnings or errors for the currently chosen model
@@ -135,6 +146,9 @@ static void imgui_draw(ProgramState *state)
 
 void run_program(GLFWwindow* window)
 {
+    // Disable vsync
+    glfwSwapInterval(0);
+
     // Enable depth (Z) buffer (accept "closest" fragment)
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -154,8 +168,8 @@ void run_program(GLFWwindow* window)
 
     // Initialise global program state
     ProgramState state;
-    state.all_models = list_ply_files("../res/");
-    state.current_model = state.all_models.at(0);
+    state.all_models = list_ply_and_splat_files("../res/");
+    load_model(&state, state.all_models.at(0));
 
 	init_game(window, state);
 
