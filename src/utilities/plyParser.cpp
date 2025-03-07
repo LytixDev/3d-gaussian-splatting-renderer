@@ -113,8 +113,10 @@ GaussianSplat gaussian_splat_from_file(std::string filename)
     
     if (file_extension == ".ply") {
         splat = gaussian_splat_from_ply_file(filename);
+        splat.from_ply = true;
     }  else if (file_extension == ".splat") {
         splat = gaussian_splat_from_splat_file(filename);
+        splat.from_ply = false;
     } else {
         splat.had_error = true;
         splat.warning_and_error_messages.push_back("Error: Unsupported file format. Supported formats are .ply and .splat");
@@ -360,12 +362,12 @@ GaussianSplat gaussian_splat_from_splat_file(std::string filename)
 
         // NOTE: no idea
         // Add dummy normals
-        splat.normals.push_back(glm::vec3(0.0f, 0.0f, 1.0f));
+        // splat.normals.push_back(glm::vec3(0.0f, 0.0f, 1.0f));
         // Add dummy spherical harmonics
-        SphericalHarmonics sh;
-        for (int j = 0; j < SPHERICAL_HARMONICS_COEFFS_COUNT; j++) {
-            sh.coeffs[j] = 0.0f;
-        }
+        // SphericalHarmonics sh;
+        // for (int j = 0; j < SPHERICAL_HARMONICS_COEFFS_COUNT; j++) {
+        //     sh.coeffs[j] = 0.0f;
+        // }
 
         // NOTE: Already baked into the color component, should not be needed.
         // NOTE: Reversed SH_C0 from reference code, no idea if works

@@ -41,6 +41,13 @@ static void load_model(ProgramState *state, std::string model_path)
     GaussianSplat loaded_model = gaussian_splat_from_file(model_path);
     std::cout << "Loaded new model:" << std::endl;
     gaussian_splat_print(loaded_model);
+    // When switching models of different file types, set default scales to avoid crash
+    if (loaded_model.from_ply && !state->loaded_model.from_ply) {
+        state->scale_multiplier = 0.05;
+    }
+    if (!loaded_model.from_ply && state->loaded_model.from_ply) {
+        state->scale_multiplier = 6.0;
+    }
     state->loaded_model = loaded_model;
     state->current_model = model_path;
     state->change_model = true;
@@ -141,6 +148,22 @@ static void imgui_draw(ProgramState *state)
         }
     }
 
+    // Handle the scale modifier. Setting sensible defaults to avoid crashing.
+    double start_scale = 1.0;
+    double end_scale = 20.0;
+    if (state->loaded_model.from_ply && !state->render_as_point_cloud) {
+        start_scale = 0.001;
+        end_scale = 0.01;
+        if (state->scale_multiplier > 0.01) {
+            state->scale_multiplier = 0.01;
+        }
+    }
+    if (state->render_as_point_cloud && state->scale_multiplier < 1) {
+        state->scale_multiplier = 1;
+    }
+    ImGui::SliderFloat("Scale multipler", &state->scale_multiplier, start_scale, end_scale);
+    ImGui::Checkbox("Render as point cloud", &state->render_as_point_cloud);
+
     ImGui::End();
 }
 
@@ -150,8 +173,9 @@ void run_program(GLFWwindow* window)
     glfwSwapInterval(0);
 
     // Enable depth (Z) buffer (accept "closest" fragment)
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
+    // glEnable(GL_DEPTH_TEST);
+    // glDepthFunc(GL_LESS);
+    glDisable(GL_DEPTH_TEST);
 
     // Configure miscellaneous OpenGL settings
     glEnable(GL_CULL_FACE);
@@ -162,9 +186,10 @@ void run_program(GLFWwindow* window)
     // Enable transparency
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    //glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE);
 
     // Set default colour after clearing the colour buffer
-    glClearColor(0.3f, 0.5f, 0.8f, 1.0f);
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
     // Initialise global program state
     ProgramState state;
@@ -183,7 +208,7 @@ void run_program(GLFWwindow* window)
 		ImGui::NewFrame();
 
         update_frame(window, &state);
-        render_frame(window);
+        render_frame(window, &state);
 
         imgui_draw(&state);
 

@@ -27,6 +27,20 @@ Mesh triangle(glm::vec3 scale)
     return m;
 }
 
+Mesh quadrilateral(glm::vec3 scale)
+{
+    Mesh m;
+    m.vertices = {
+        { -0.5f * scale.x,  0.5f * scale.y, 0.0f * scale.z }, // Top left
+        {  0.5f * scale.x,  0.5f * scale.y, 0.0f * scale.z }, // Top right
+        { -0.5f * scale.x, -0.5f * scale.y, 0.0f * scale.z }, // Bottom left
+        {  0.5f * scale.x, -0.5f * scale.y, 0.0f * scale.z }  // Bottom right
+    };
+    // NOTE: Neither normals nor texture coordiantes
+    m.indices = { 0, 2, 1, 1, 2, 3 };
+    return m;
+}
+
 Mesh cube(glm::vec3 scale, glm::vec2 textureScale, bool tilingTextures, bool inverted, glm::vec3 textureScale3d) {
     glm::vec3 points[8];
     int indices[36];

@@ -21,7 +21,8 @@ typedef struct {
     bool change_model = false;
     bool is_loading_model = false;
     
-    //std::mutex model_mutex;
+    float scale_multiplier = 6;
+    bool render_as_point_cloud = false;
 } ProgramState;
 
 // Main OpenGL program

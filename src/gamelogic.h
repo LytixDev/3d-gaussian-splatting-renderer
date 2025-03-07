@@ -8,4 +8,4 @@
 void updateNodeTransformations(SceneNode* node, glm::mat4 transformationThusFar, glm::mat4 VP);
 void init_game(GLFWwindow* window, ProgramState state);
 void update_frame(GLFWwindow* window, ProgramState *state);
-void render_frame(GLFWwindow* window);
+void render_frame(GLFWwindow* window, ProgramState *state);
