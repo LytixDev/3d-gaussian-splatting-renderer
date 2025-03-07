@@ -36,6 +36,23 @@ static std::vector<std::string> list_ply_and_splat_files(const std::string& dire
     return files;
 }
 
+static void load_model(ProgramState *state, std::string model_path)
+{
+    GaussianSplat loaded_model;
+    // NOTE: Lol ...
+    if (model_path.back() == 'y') {
+        loaded_model = gaussian_splat_from_ply_file(model_path);
+    } else {
+        loaded_model = gaussian_splat_from_splat_file(model_path);
+    }
+    std::cout << "Loaded new model:" << std::endl;
+    gaussian_splat_print(loaded_model);
+    state->loaded_model = loaded_model;
+    state->current_model = model_path;
+    state->change_model = true;
+    state->is_loading_model = false;
+}
+
 
 static void imgui_draw(ProgramState *state)
 {
@@ -83,19 +100,7 @@ static void imgui_draw(ProgramState *state)
                     // Create a new detatched thread for loading the splat file
                     state->is_loading_model = true;
                     std::thread loading_thread([state, selected_model]() {
-                        GaussianSplat loaded_model;
-                        // NOTE: Lol ...
-                        if (selected_model.back() == 'y') {
-                            loaded_model = gaussian_splat_from_ply_file(selected_model);
-                        } else {
-                            loaded_model = gaussian_splat_from_splat_file(selected_model);
-                        }
-                        std::cout << "Loaded new model:" << std::endl;
-                        gaussian_splat_print(loaded_model);
-                        state->loaded_model = loaded_model;
-                        state->current_model = selected_model;
-                        state->change_model = true;
-                        state->is_loading_model = false;
+                        load_model(state, selected_model);
                     });
                     loading_thread.detach();
                 }
@@ -171,7 +176,7 @@ void run_program(GLFWwindow* window)
     // Initialise global program state
     ProgramState state;
     state.all_models = list_ply_and_splat_files("../res/");
-    state.current_model = state.all_models.at(0);
+    load_model(&state, state.all_models.at(0));
 
 	init_game(window, state);
 
