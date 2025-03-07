@@ -23,6 +23,7 @@
 #include <string>
 #include <iterator>
 #include <filesystem>
+#include <algorithm>
 
 
 #define EXPECTED_PROPERTIES_COUNT 62
@@ -101,6 +102,30 @@ static std::vector<std::string> next_line_tokens(std::ifstream &file) {
     return {"error"};
 }
 
+
+GaussianSplat gaussian_splat_from_file(std::string filename)
+{
+    auto start_time = std::chrono::high_resolution_clock::now();
+    
+    GaussianSplat splat;
+    std::string file_extension = std::filesystem::path(filename).extension().string();
+    std::transform(file_extension.begin(), file_extension.end(), file_extension.begin(), ::tolower);
+    
+    if (file_extension == ".ply") {
+        splat = gaussian_splat_from_ply_file(filename);
+    }  else if (file_extension == ".splat") {
+        splat = gaussian_splat_from_splat_file(filename);
+    } else {
+        splat.had_error = true;
+        splat.warning_and_error_messages.push_back("Error: Unsupported file format. Supported formats are .ply and .splat");
+    }
+    
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+    splat.load_time_in_ms = duration;
+    
+    return splat;
+}
 
 GaussianSplat gaussian_splat_from_ply_file(std::string filename)
 {
@@ -244,6 +269,8 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
 
 GaussianSplat gaussian_splat_from_splat_file(std::string filename)
 {
+    // The .splat file format is "Reverse engineered" from:
+    // https://github.com/antimatter15/splat/blob/main/convert.py
     GaussianSplat splat;
     splat.filename = std::filesystem::path(filename).filename().string();
     splat.had_error = false;
@@ -255,21 +282,20 @@ GaussianSplat gaussian_splat_from_splat_file(std::string filename)
         return splat;
     }
 
-    // Get file size to help determine number of vertices
+    // Get file size to determine number of vertices
     file.seekg(0, std::ios::end);
     std::streamsize file_size = file.tellg();
     file.seekg(0, std::ios::beg);
 
     // Each vertex in the .splat format consists of:
-    // - 3 floats for position (12 bytes)
-    // - 3 floats for scales (12 bytes)
-    // - 4 uint8_t for colors (4 bytes)
-    // - 4 uint8_t for rotation (4 bytes)
-    // Total: 32 bytes per vertex
-    const size_t bytes_per_vertex = 32;
+    // - 3 floats for position
+    // - 3 floats for scales
+    // - 4 bytes for colors
+    // - 4 bytes for rotation
+    const size_t bytes_per_vertex = 12 + 12 + 4 + 4;
     
     if (file_size % bytes_per_vertex != 0) {
-        splat.warning_and_error_messages.push_back("Error: File size is not a multiple of vertex size (32 bytes)");
+        splat.warning_and_error_messages.push_back("Error: File size is not a multiple of vertex size");
         splat.had_error = true;
         return splat;
     }
@@ -277,54 +303,59 @@ GaussianSplat gaussian_splat_from_splat_file(std::string filename)
     size_t vertex_count = file_size / bytes_per_vertex;
     splat.count = vertex_count;
 
-    // Reserve space for all the data
+    // Reserve space
     splat.ws_positions.reserve(vertex_count);
-    splat.normals.reserve(vertex_count); // Not present in .splat format, but keeping for compatibility
+    //splat.normals.reserve(vertex_count);
     splat.colors.reserve(vertex_count);
-    splat.shs.reserve(vertex_count); // Will be initialized with zeros
+    //splat.shs.reserve(vertex_count);
     splat.opacities.reserve(vertex_count);
     splat.scales.reserve(vertex_count);
     splat.rotations.reserve(vertex_count);
 
-    // Temporary buffers for reading data
     float position[3];
     float scales[3];
     uint8_t color_data[4];
     uint8_t rotation_data[4];
-
     for (size_t i = 0; i < vertex_count; i++) {
-        // Read position
         file.read(reinterpret_cast<char*>(position), sizeof(float) * 3);
-        // NOTE: Same as .ply files, coordinate system seem to be left handed
+        // NOTE: Same as .ply files, coordinate system seems to be left handed
         splat.ws_positions.push_back(glm::vec3(-position[0], -position[1], position[2]));
 
         // Read scales
         file.read(reinterpret_cast<char*>(scales), sizeof(float) * 3);
         splat.scales.push_back(glm::vec3(scales[0], scales[1], scales[2]));
 
-        // Read color (4 uint8_t, normalized to 0-1)
+        // Read color normalized between 0-1
+        // NOTE: May use a different color space?
         file.read(reinterpret_cast<char*>(color_data), sizeof(uint8_t) * 4);
         splat.colors.push_back(glm::vec3(
             color_data[0] / 255.0f,
             color_data[1] / 255.0f,
             color_data[2] / 255.0f
         ));
+        // Alpha / opacity.
+        // NOTE: Already calculated :: 1 / (1 + e^(-opacity))
         splat.opacities.push_back(color_data[3] / 255.0f);
 
         // Read rotation (4 uint8_t, denormalized from 0-255 to -1 to 1)
         file.read(reinterpret_cast<char*>(rotation_data), sizeof(uint8_t) * 4);
         glm::vec4 rot(
-            (rotation_data[0] - 128.0f) / 128.0f,
-            (rotation_data[1] - 128.0f) / 128.0f,
-            (rotation_data[2] - 128.0f) / 128.0f,
-            (rotation_data[3] - 128.0f) / 128.0f
+            rotation_data[0],
+            rotation_data[1],
+            rotation_data[2],
+            rotation_data[3]
+            //(rotation_data[0] - 128.0f) / 128.0f,
+            //(rotation_data[1] - 128.0f) / 128.0f,
+            //(rotation_data[2] - 128.0f) / 128.0f,
+            //(rotation_data[3] - 128.0f) / 128.0f
         );
         
+        // NOTE: Should already be normalized.
         // Normalize the quaternion
-        float length = glm::length(rot);
-        if (length > 0.0f) {
-            rot /= length;
-        }
+        //float length = glm::length(rot);
+        //if (length > 0.0f) {
+        //    rot /= length;
+        //}
         splat.rotations.push_back(rot);
 
         // NOTE: no idea
@@ -335,12 +366,14 @@ GaussianSplat gaussian_splat_from_splat_file(std::string filename)
         for (int j = 0; j < SPHERICAL_HARMONICS_COEFFS_COUNT; j++) {
             sh.coeffs[j] = 0.0f;
         }
+
+        // NOTE: Already baked into the color component, should not be needed.
         // NOTE: Reversed SH_C0 from reference code, no idea if works
-        const float SH_C0 = 0.28209479177387814f;
-        sh.coeffs[0] = (splat.colors.back().r - 0.5f) / SH_C0;
-        sh.coeffs[1] = (splat.colors.back().g - 0.5f) / SH_C0;
-        sh.coeffs[2] = (splat.colors.back().b - 0.5f) / SH_C0;
-        splat.shs.push_back(sh);
+        //const float SH_C0 = 0.28209479177387814f;
+        //sh.coeffs[0] = (splat.colors.back().r - 0.5f) / SH_C0;
+        //sh.coeffs[1] = (splat.colors.back().g - 0.5f) / SH_C0;
+        //sh.coeffs[2] = (splat.colors.back().b - 0.5f) / SH_C0;
+        //splat.shs.push_back(sh);
 
         if (!file) {
             std::stringstream ss;

@@ -28,10 +28,11 @@ typedef struct {
     float coeffs[SPHERICAL_HARMONICS_COEFFS_COUNT];
 } SphericalHarmonics;
 
-typedef struct {
+typedef struct gaussian_splat_t {
     std::string filename;
     bool had_error;
     std::vector<std::string> warning_and_error_messages;
+    double load_time_in_ms = -1;
 
     /* Number of "vertices" */
     size_t count;
@@ -46,6 +47,7 @@ typedef struct {
     std::vector<glm::vec4> rotations; // rot_0 .. rot_3
 } GaussianSplat;
 
+GaussianSplat gaussian_splat_from_file(std::string filename);
 GaussianSplat gaussian_splat_from_ply_file(std::string filename);
 GaussianSplat gaussian_splat_from_splat_file(std::string filename);
 

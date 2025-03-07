@@ -38,13 +38,7 @@ static std::vector<std::string> list_ply_and_splat_files(const std::string& dire
 
 static void load_model(ProgramState *state, std::string model_path)
 {
-    GaussianSplat loaded_model;
-    // NOTE: Lol ...
-    if (model_path.back() == 'y') {
-        loaded_model = gaussian_splat_from_ply_file(model_path);
-    } else {
-        loaded_model = gaussian_splat_from_splat_file(model_path);
-    }
+    GaussianSplat loaded_model = gaussian_splat_from_file(model_path);
     std::cout << "Loaded new model:" << std::endl;
     gaussian_splat_print(loaded_model);
     state->loaded_model = loaded_model;
@@ -65,12 +59,10 @@ static void imgui_draw(ProgramState *state)
         }
     }
 
-    bool b;
     ImGui::Begin("Program Settings");
     float fps = ImGui::GetIO().Framerate;
     float delta_time = ImGui::GetIO().DeltaTime * 1000.0f;
     ImGui::Text("FPS: %.1f | Frametime: %.3f ms", fps, delta_time);
-    ImGui::Checkbox("Draw Triangle", &b);
     
     // Display loading thingy if a model is currently being loaded
     if (state->is_loading_model) {
@@ -116,6 +108,7 @@ static void imgui_draw(ProgramState *state)
     // Display data for the currently chosen model
     if (ImGui::CollapsingHeader("Model Statistics")) {
         ImGui::Text("Vertex Count: %zu", state->loaded_model.count);
+        ImGui::Text("Load time: %f (ms)", state->loaded_model.load_time_in_ms);
     }
 
     // Display any warnings or errors for the currently chosen model
