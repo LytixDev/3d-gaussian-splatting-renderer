@@ -13,7 +13,7 @@ vec3 tone_map(vec3 c) {
 
 void main() {
     gl_Position = VP * vec4(position_ws, 1.0);
-    gl_PointSize = 10.0;
+    gl_PointSize = 1.0;
     
     frag_color = tone_map(color);
 }

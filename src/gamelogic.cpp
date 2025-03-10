@@ -102,7 +102,8 @@ void render_gaussians()
     glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(VP));
     
     glBindVertexArray(vao);
-    //glEnable(GL_PROGRAM_POINT_SIZE); // Enable point size control
+    // Allows the shader to control the size of each point
+    // glEnable(GL_PROGRAM_POINT_SIZE);
 
     // Draw all Gaussians at once
     glDrawArrays(GL_POINTS, 0, splat.ws_positions.size());
@@ -130,7 +131,7 @@ void init_game(GLFWwindow* window, ProgramState state) {
     rootNode = createSceneNode(GEOMETRY);
 
     SceneNode *triNode = createSceneNode(GEOMETRY);
-    Mesh tri = triangle(glm::vec3(50));
+    Mesh tri = quadrilateral(glm::vec3(50));
     unsigned int triVAO = generateBuffer(tri);
     triNode->position = glm::vec3(10.0, 0.0, -80.0);
     triNode->vertexArrayObjectID  = triVAO;
