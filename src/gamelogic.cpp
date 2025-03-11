@@ -56,13 +56,15 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 }
 
 // NOTE: Only a point cloud right now
-GLuint vao, positionVBO, colorVBO;
+GLuint vao, positionVBO, colorVBO, scaleVBO, alphaVBO;
 
 void setup_gaussians()
 {
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &positionVBO);
     glGenBuffers(1, &colorVBO);
+    glGenBuffers(1, &scaleVBO);
+    glGenBuffers(1, &alphaVBO);
     
     glBindVertexArray(vao);
     
@@ -72,7 +74,6 @@ void setup_gaussians()
                  splat.ws_positions.size() * sizeof(glm::vec3), 
                  splat.ws_positions.data(), 
                  GL_STATIC_DRAW);
-    
     // Setup position attribute
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
     glEnableVertexAttribArray(0);
@@ -83,10 +84,27 @@ void setup_gaussians()
                  splat.colors.size() * sizeof(glm::vec3),
                  splat.colors.data(),
                  GL_STATIC_DRAW);
-    
     // Setup color attribute
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
     glEnableVertexAttribArray(1);
+
+    // Scale buffer setup
+    glBindBuffer(GL_ARRAY_BUFFER, scaleVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 splat.scales.size() * sizeof(glm::vec3),
+                 splat.scales.data(),
+                 GL_STATIC_DRAW);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glEnableVertexAttribArray(2);
+
+    // Alpha buffer setup
+    glBindBuffer(GL_ARRAY_BUFFER, alphaVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 splat.opacities.size() * sizeof(float),
+                 splat.opacities.data(),
+                 GL_STATIC_DRAW);
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glEnableVertexAttribArray(3);
     
     glBindVertexArray(0);
 }
@@ -103,7 +121,7 @@ void render_gaussians()
     
     glBindVertexArray(vao);
     // Allows the shader to control the size of each point
-    // glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_PROGRAM_POINT_SIZE);
 
     // Draw all Gaussians at once
     glDrawArrays(GL_POINTS, 0, splat.ws_positions.size());

@@ -150,8 +150,9 @@ void run_program(GLFWwindow* window)
     glfwSwapInterval(0);
 
     // Enable depth (Z) buffer (accept "closest" fragment)
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
+    // glEnable(GL_DEPTH_TEST);
+    // glDepthFunc(GL_LESS);
+    glDisable(GL_DEPTH_TEST);
 
     // Configure miscellaneous OpenGL settings
     glEnable(GL_CULL_FACE);
@@ -162,6 +163,7 @@ void run_program(GLFWwindow* window)
     // Enable transparency
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    //glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE);
 
     // Set default colour after clearing the colour buffer
     glClearColor(0.3f, 0.5f, 0.8f, 1.0f);
