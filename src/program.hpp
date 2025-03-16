@@ -22,7 +22,7 @@ typedef struct {
     bool is_loading_model = false;
     
     float scale_multiplier = 6;
-    bool render_as_point_cloud = false;
+    bool render_as_point_cloud = true;
 } ProgramState;
 
 // Main OpenGL program

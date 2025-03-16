@@ -9,8 +9,8 @@ layout (location = 3) in vec3 color;           // Color of Gaussian
 layout (location = 4) in vec3 scale;           // Scale of Gaussian
 layout (location = 5) in float alpha;          // Opacity of Gaussian
 
-uniform layout(location = 3) mat4 VP;          // View-projection matrix
-uniform float scale_multipler;
+uniform layout(location = 0) mat4 VP;          // View-projection matrix
+uniform float scale_multiplier;
 
 // Output to fragment shader
 out vec2 frag_texCoord;
@@ -24,7 +24,7 @@ out float frag_alpha;
 
 void main() {
     // Scale the quad based on Gaussian scale and perspective division
-    vec2 scaledQuadVertex = quadVertex * scale.xy * scale_multipler;
+    vec2 scaledQuadVertex = quadVertex * scale.xy * scale_multiplier;
     
     // Transform the Gaussian center position to clip space
     vec4 centerPositionClip = VP * vec4(position_ws, 1.0);

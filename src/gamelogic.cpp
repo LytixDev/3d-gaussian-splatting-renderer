@@ -36,6 +36,9 @@ Gloom::Shader* shader_point_cloud;
 
 GaussianSplat splat;
 
+GLuint vao, vbo, ebo, positionVBO, colorVBO, scaleVBO, alphaVBO;
+GLuint instancedVAO;
+
 
 void mouseCallback(GLFWwindow* window, double x, double y) 
 {
@@ -58,9 +61,6 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     camera->handleKeyboardInputs(key, action);
     // NOTE: We don't forward any keys to ImGui. Maybe we want to do that later.
 }
-
-GLuint vao, vbo, ebo, positionVBO, colorVBO, scaleVBO, alphaVBO;
-GLuint instancedVAO;
 
 void setup_quad() 
 {
@@ -209,6 +209,54 @@ void render_gaussians(bool render_as_point_cloud)
     }
 }
 
+// void setup_gaussians()
+// {
+//     glGenVertexArrays(1, &vao);
+//     glGenBuffers(1, &positionVBO);
+//     glGenBuffers(1, &colorVBO);
+//     
+//     glBindVertexArray(vao);
+//     
+//     // Position buffer setup
+//     glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
+//     glBufferData(GL_ARRAY_BUFFER, 
+//                  splat.ws_positions.size() * sizeof(glm::vec3), 
+//                  splat.ws_positions.data(), 
+//                  GL_STATIC_DRAW);
+//     
+//     // Setup position attribute
+//     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+//     glEnableVertexAttribArray(2);
+//     
+//     // Color buffer setup
+//     glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+//     glBufferData(GL_ARRAY_BUFFER,
+//                  splat.colors.size() * sizeof(glm::vec3),
+//                  splat.colors.data(),
+//                  GL_STATIC_DRAW);
+//     
+//     // Setup color attribute
+//     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+//     glEnableVertexAttribArray(3);
+// }
+// 
+// void render_gaussians(bool b)
+// {
+//     // Calculate view projection matrix
+//     glm::mat4 projection = glm::perspective(glm::radians(80.0f), 
+//                                           float(windowWidth) / float(windowHeight), 
+//                                           0.1f, 350.f);
+//     glm::mat4 VP = projection * camera->getViewMatrix();
+//     // Set VP matrix uniform
+//     glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(VP));
+//     
+//     glBindVertexArray(vao);
+//     glEnable(GL_PROGRAM_POINT_SIZE); // Enable point size control
+// 
+//     // Draw all Gaussians at once
+//     glDrawArrays(GL_POINTS, 0, splat.ws_positions.size());
+// }
+
 
 void init_game(GLFWwindow* window, ProgramState state) 
 {
@@ -301,7 +349,8 @@ void updateNodeTransformations(SceneNode* node, glm::mat4 transformationThusFar,
 }
 
 
-void renderNode3D(SceneNode* node) {
+void renderNode3D(SceneNode* node)
+{
     glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(node->currentTransformationMatrix));
     glUniformMatrix4fv(4, 1, GL_FALSE, glm::value_ptr(node->modelMatrix));
     glUniformMatrix3fv(5, 1, GL_FALSE, glm::value_ptr(node->normalMatrix));
@@ -323,7 +372,7 @@ void renderNode3D(SceneNode* node) {
         } break;
     }
 
-    for(SceneNode* child : node->children) {
+    for (SceneNode* child : node->children) {
         renderNode3D(child);
     }
 }
@@ -342,7 +391,7 @@ void render_frame(GLFWwindow* window, ProgramState *state)
         shader_point_cloud->activate();
     } else {
         shader_gaussian->activate();
-        glUniform1f(shader_gaussian->getUniformFromName("scale_multipler"), state->scale_multiplier);
+        // glUniform1f(shader3D->getUniformFromName("scale_multiplier"), state->scale_multiplier);
     }
 
     render_gaussians(state->render_as_point_cloud);
