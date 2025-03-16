@@ -27,110 +27,191 @@
 #include <glm/gtx/string_cast.hpp> // Enables to_string on glm types, handy for debugging
 
 Gloom::Camera *camera = new Gloom::Camera(glm::vec3(0.3f, 0.0f, 2.5f), 2.0f, 0.075f);
-double lastFrameTime = 0.0;  // Change from GLfloat to double for better precision
+double lastFrameTime = 0.0;
 SceneNode* rootNode;
 // These are heap allocated, because they should not be initialised at the start of the program
 Gloom::Shader* shader3D;
-Gloom::Shader* shaderGaussian;
+Gloom::Shader* shader_gaussian;
+Gloom::Shader* shader_point_cloud;
 
 GaussianSplat splat;
 
 
-void mouseCallback(GLFWwindow* window, double x, double y) {
+void mouseCallback(GLFWwindow* window, double x, double y) 
+{
     camera->handleCursorPosInput(x, y);
     // Forward to ImGui
     ImGuiIO& io = ImGui::GetIO();
     io.MousePos = ImVec2((float)x, (float)y);
 }
 
-void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) 
+{
     camera->handleMouseButtonInputs(button, action);
     // Forward to ImGui
     ImGuiIO& io = ImGui::GetIO();
     io.MouseDown[button] = action;
 }
 
-void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) 
+{
     camera->handleKeyboardInputs(key, action);
     // NOTE: We don't forward any keys to ImGui. Maybe we want to do that later.
 }
 
-// NOTE: Only a point cloud right now
-GLuint vao, positionVBO, colorVBO, scaleVBO, alphaVBO;
+GLuint vao, vbo, ebo, positionVBO, colorVBO, scaleVBO, alphaVBO;
+GLuint instancedVAO;
 
-// NOTE: Do we need to have a free_gaussians() as well?
-void setup_gaussians()
+void setup_quad() 
 {
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &positionVBO);
-    glGenBuffers(1, &colorVBO);
-    glGenBuffers(1, &scaleVBO);
-    glGenBuffers(1, &alphaVBO);
+    // A single quad made of two triangles (4 vertices)
+    float quadVertices[] = {
+        // positions  // texture coords
+        -0.5f,  0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.0f, 0.0f,
+         0.5f, -0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f,  1.0f, 1.0f
+    };
     
+    // Two triangles to form a quad
+    unsigned int quadIndices[] = {
+        0, 1, 2,
+        0, 2, 3
+    };
+    
+    // Generate and bind VAO
+    glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
     
-    // Position buffer setup
+    // Generate and bind VBO
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+    
+    // Generate and bind EBO
+    glGenBuffers(1, &ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndices), quadIndices, GL_STATIC_DRAW);
+    
+    // Setup vertex attributes
+    // Position attribute
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // Texture coordinate attribute
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    
+    glBindVertexArray(0);
+}
+
+void setup_gaussians() 
+{
+    // First set up the quad
+    setup_quad();
+    
+    // Set up instanced rendering
+    glGenVertexArrays(1, &instancedVAO);
+    glBindVertexArray(instancedVAO);
+    
+    // Bind the quad's VBO and EBO
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    
+    // Setup quad vertex attributes
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    
+    // Position buffer setup (per instance)
+    glGenBuffers(1, &positionVBO);
     glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
     glBufferData(GL_ARRAY_BUFFER, 
                  splat.ws_positions.size() * sizeof(glm::vec3), 
                  splat.ws_positions.data(), 
                  GL_STATIC_DRAW);
-    // Setup position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glEnableVertexAttribArray(2);
+    glVertexAttribDivisor(2, 1); // Tell OpenGL this is an instanced attribute
     
-    // Color buffer setup
+    // Color buffer setup (per instance)
+    glGenBuffers(1, &colorVBO);
     glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
     glBufferData(GL_ARRAY_BUFFER,
                  splat.colors.size() * sizeof(glm::vec3),
                  splat.colors.data(),
                  GL_STATIC_DRAW);
-    // Setup color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-    glEnableVertexAttribArray(1);
-
-    // Scale buffer setup
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glEnableVertexAttribArray(3);
+    glVertexAttribDivisor(3, 1); // Tell OpenGL this is an instanced attribute
+    
+    // Scale buffer setup (per instance)
+    glGenBuffers(1, &scaleVBO);
     glBindBuffer(GL_ARRAY_BUFFER, scaleVBO);
     glBufferData(GL_ARRAY_BUFFER,
                  splat.scales.size() * sizeof(glm::vec3),
                  splat.scales.data(),
                  GL_STATIC_DRAW);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-    glEnableVertexAttribArray(2);
-
-    // Alpha buffer setup
+    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glEnableVertexAttribArray(4);
+    glVertexAttribDivisor(4, 1); // Tell OpenGL this is an instanced attribute
+    
+    // Alpha buffer setup (per instance)
+    glGenBuffers(1, &alphaVBO);
     glBindBuffer(GL_ARRAY_BUFFER, alphaVBO);
     glBufferData(GL_ARRAY_BUFFER,
                  splat.opacities.size() * sizeof(float),
                  splat.opacities.data(),
                  GL_STATIC_DRAW);
-    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-    glEnableVertexAttribArray(3);
-    
-    glBindVertexArray(0);
+    glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(float), (void*)0);
+    glEnableVertexAttribArray(5);
+    glVertexAttribDivisor(5, 1); // Tell OpenGL this is an instanced attribute
 }
 
-void render_gaussians()
+void free_gaussians() 
+{
+    glDeleteVertexArrays(1, &vao);
+    glDeleteVertexArrays(1, &instancedVAO);
+    glDeleteBuffers(1, &vbo);
+    glDeleteBuffers(1, &ebo);
+    glDeleteBuffers(1, &positionVBO);
+    glDeleteBuffers(1, &colorVBO);
+    glDeleteBuffers(1, &scaleVBO);
+    glDeleteBuffers(1, &alphaVBO);
+}
+
+void render_gaussians(bool render_as_point_cloud) 
 {
     // Calculate view projection matrix
     glm::mat4 projection = glm::perspective(glm::radians(80.0f), 
                                           float(windowWidth) / float(windowHeight), 
                                           0.1f, 350.f);
     glm::mat4 VP = projection * camera->getViewMatrix();
+    
     // Set VP matrix uniform
     glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(VP));
     
-    glBindVertexArray(vao);
-    // Allows the shader to control the size of each point
-    glEnable(GL_PROGRAM_POINT_SIZE);
-
-    // Draw all Gaussians at once
-    glDrawArrays(GL_POINTS, 0, splat.ws_positions.size());
-    // glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, splat.ws_positions.size());
+    // Enable blending for transparency
+    // glEnable(GL_BLEND);
+    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    // Bind the instanced VAO
+    glBindVertexArray(instancedVAO);
+   
+    if (render_as_point_cloud) {
+        // Draw as points
+        glEnable(GL_PROGRAM_POINT_SIZE);
+        glDrawArrays(GL_POINTS, 0, splat.ws_positions.size());
+    } else {
+        // Draw all Gaussians as instanced quads
+        // 6 vertices per quad 
+        glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, splat.ws_positions.size());
+    }
 }
 
 
-void init_game(GLFWwindow* window, ProgramState state) {
+void init_game(GLFWwindow* window, ProgramState state) 
+{
     splat = state.loaded_model;
     //gaussian_splat_print(splat);
     setup_gaussians();
@@ -140,23 +221,24 @@ void init_game(GLFWwindow* window, ProgramState state) {
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetKeyCallback(window, keyCallback);
 
+    // Setup shaders
     shader3D = new Gloom::Shader();
     shader3D->makeBasicShader("../res/shaders/simple.vert", "../res/shaders/simple.frag");
+    shader_gaussian = new Gloom::Shader();
+    shader_gaussian->makeBasicShader("../res/shaders/gaussian.vert", "../res/shaders/gaussian.frag");
+    shader_point_cloud = new Gloom::Shader();
+    shader_point_cloud->makeBasicShader("../res/shaders/point_cloud.vert", "../res/shaders/point_cloud.frag");
+
     shader3D->activate();
 
-    shaderGaussian = new Gloom::Shader();
-    shaderGaussian->makeBasicShader("../res/shaders/gaussian.vert", "../res/shaders/gaussian.frag");
-
-
+    // Regular geometry
     rootNode = createSceneNode(GEOMETRY);
-
     SceneNode *triNode = createSceneNode(GEOMETRY);
     Mesh tri = quadrilateral(glm::vec3(50));
     unsigned int triVAO = generateBuffer(tri);
     triNode->position = glm::vec3(10.0, 0.0, -80.0);
     triNode->vertexArrayObjectID  = triVAO;
     triNode->VAOIndexCount        = tri.indices.size();
-
     rootNode->children.push_back(triNode);
 
     getTimeDeltaSeconds();
@@ -164,7 +246,8 @@ void init_game(GLFWwindow* window, ProgramState state) {
     std::cout << fmt::format("Initialized scene with {} SceneNodes.", totalChildren(rootNode)) << std::endl;
 }
 
-void update_frame(GLFWwindow* window, ProgramState *state) {
+void update_frame(GLFWwindow* window, ProgramState *state)
+{
     if (state->change_model) {
         state->change_model = false;
         splat = state->loaded_model;
@@ -186,7 +269,8 @@ void update_frame(GLFWwindow* window, ProgramState *state) {
     updateNodeTransformations(rootNode, identity, VP);
 }
 
-void updateNodeTransformations(SceneNode* node, glm::mat4 transformationThusFar, glm::mat4 VP) {
+void updateNodeTransformations(SceneNode* node, glm::mat4 transformationThusFar, glm::mat4 VP) 
+{
     glm::mat4 transformationMatrix =
               glm::translate(node->position)
             * glm::translate(node->referencePoint)
@@ -244,7 +328,8 @@ void renderNode3D(SceneNode* node) {
     }
 }
 
-void render_frame(GLFWwindow* window) {
+void render_frame(GLFWwindow* window, ProgramState *state) 
+{
     int windowWidth, windowHeight;
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
     glViewport(0, 0, windowWidth, windowHeight);
@@ -253,6 +338,12 @@ void render_frame(GLFWwindow* window) {
     glUniform3fv(shader3D->getUniformFromName("camera_position"), 1, glm::value_ptr(camera->getPosition()));
     renderNode3D(rootNode);
 
-    shaderGaussian->activate();
-    render_gaussians();
+    if (state->render_as_point_cloud) {
+        shader_point_cloud->activate();
+    } else {
+        shader_gaussian->activate();
+        glUniform1f(shader_gaussian->getUniformFromName("scale_multipler"), state->scale_multiplier);
+    }
+
+    render_gaussians(state->render_as_point_cloud);
 }

@@ -41,6 +41,13 @@ static void load_model(ProgramState *state, std::string model_path)
     GaussianSplat loaded_model = gaussian_splat_from_file(model_path);
     std::cout << "Loaded new model:" << std::endl;
     gaussian_splat_print(loaded_model);
+    // When switching models of different file types, set default scales to avoid crash
+    if (loaded_model.from_ply && !state->loaded_model.from_ply) {
+        state->scale_multiplier = 0.05;
+    }
+    if (!loaded_model.from_ply && state->loaded_model.from_ply) {
+        state->scale_multiplier = 6.0;
+    }
     state->loaded_model = loaded_model;
     state->current_model = model_path;
     state->change_model = true;
@@ -141,6 +148,15 @@ static void imgui_draw(ProgramState *state)
         }
     }
 
+    double start_scale = 1.0;
+    double end_scale = 20.0;
+    if (state->loaded_model.from_ply) {
+        start_scale = 0.001;
+        end_scale = 0.01;
+    }
+    ImGui::SliderFloat("Scale multipler", &state->scale_multiplier, start_scale, end_scale);
+    ImGui::Checkbox("Render as point cloud", &state->render_as_point_cloud);
+
     ImGui::End();
 }
 
@@ -185,7 +201,7 @@ void run_program(GLFWwindow* window)
 		ImGui::NewFrame();
 
         update_frame(window, &state);
-        render_frame(window);
+        render_frame(window, &state);
 
         imgui_draw(&state);
 

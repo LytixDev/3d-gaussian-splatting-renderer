@@ -113,8 +113,10 @@ GaussianSplat gaussian_splat_from_file(std::string filename)
     
     if (file_extension == ".ply") {
         splat = gaussian_splat_from_ply_file(filename);
+        splat.from_ply = true;
     }  else if (file_extension == ".splat") {
         splat = gaussian_splat_from_splat_file(filename);
+        splat.from_ply = false;
     } else {
         splat.had_error = true;
         splat.warning_and_error_messages.push_back("Error: Unsupported file format. Supported formats are .ply and .splat");

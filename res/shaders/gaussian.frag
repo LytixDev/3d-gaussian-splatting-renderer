@@ -1,23 +1,29 @@
 #version 430 core
+in vec2 frag_texCoord;
 in vec3 frag_color;
-in vec3 frag_scale;
 in float frag_alpha;
 
-out vec4 frag_color_out;
+out vec4 FragColor;
 
 void main() {
-    // NOTE: When we create the ellipsis, this can go
-    // float dist = length(gl_PointCoord - vec2(0.5)); // Circular alpha mask
-    // if (dist > 0.5) discard; // Soft edges for the splat
-
-    vec2 uv = gl_PointCoord * 2.0 - 1.0;
-
-    // Isotropic
-    float dist2 = dot(uv * frag_scale.xy, uv * frag_scale.xy);
-    float alpha = exp(-0.5 * dist2);
-
-
-    frag_color_out = vec4(frag_color.rgb, alpha);
-    //frag_color_out = vec4(frag_color.rgb, frag_alpha * alpha);
-    // frag_color_out = vec4(frag_color, 1.0);
+    // Convert texture coordinates to center-relative coordinates (-1 to 1)
+    vec2 centered = 2.0 * (frag_texCoord - 0.5);
+    
+    // Calculate radial distance from center (squared)
+    float r2 = dot(centered, centered);
+    
+    // Gaussian falloff function
+    // exp(-0.5 * r^2) gives us the classic Gaussian bell curve
+    float gaussianFalloff = exp(-2.0 * r2);
+    
+    // Apply Gaussian falloff to the alpha
+    float finalAlpha = frag_alpha * gaussianFalloff;
+    
+    // Discard very transparent pixels
+    if (finalAlpha < 0.01) {
+        discard;
+    }
+    
+    // Output final color with Gaussian alpha falloff
+    FragColor = vec4(frag_color, finalAlpha);
 }

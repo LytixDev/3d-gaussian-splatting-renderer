@@ -1,27 +1,49 @@
 #version 430 core
-layout (location = 0) in vec3 position_ws;
-layout (location = 1) in vec3 color;
-layout (location = 2) in vec3 scale;
-layout (location = 3) in float alpha;
+// Quad vertex attributes
+layout (location = 0) in vec2 quadVertex;      // Local quad coordinates (-0.5 to 0.5)
+layout (location = 1) in vec2 texCoord;        // Texture coordinates for the quad
 
-uniform layout(location = 3) mat4 VP;
+// Per-instance Gaussian attributes
+layout (location = 2) in vec3 position_ws;     // World-space position of Gaussian
+layout (location = 3) in vec3 color;           // Color of Gaussian
+layout (location = 4) in vec3 scale;           // Scale of Gaussian
+layout (location = 5) in float alpha;          // Opacity of Gaussian
 
+uniform layout(location = 3) mat4 VP;          // View-projection matrix
+uniform float scale_multipler;
+
+// Output to fragment shader
+out vec2 frag_texCoord;
 out vec3 frag_color;
-out vec3 frag_scale;
 out float frag_alpha;
 
-// NOTE: The color is stored store as rgb from 0 - 1, but some srgb stuff. Temporary tone mapping.
-vec3 tone_map(vec3 c) {
-    return c / (vec3(1.0) + abs(c));
-}
+// Tone mapping function (unchanged)
+// vec3 tone_map(vec3 c) {
+//     return c / (vec3(1.0) + abs(c));
+// }
 
 void main() {
-    gl_Position = VP * vec4(position_ws, 1.0);
-    gl_PointSize = 1.0;
-    // NOTE: This constant should be able to vary
-    // gl_PointSize = max(1.0, length(scale.xy) * 100.0 / gl_Position.w); 
+    // Scale the quad based on Gaussian scale and perspective division
+    vec2 scaledQuadVertex = quadVertex * scale.xy * scale_multipler;
     
-    frag_color = tone_map(color);
-    frag_scale = scale;
+    // Transform the Gaussian center position to clip space
+    vec4 centerPositionClip = VP * vec4(position_ws, 1.0);
+    
+    // Calculate the billboard orientation (screen-aligned quad)
+    // This keeps the quad facing the camera
+    float aspect = 1.0; // Adjust if needed based on your viewport aspect ratio
+    
+    // Apply proper scaling for perspective (objects further away appear smaller)
+    float perspectiveScale = 1.0 / centerPositionClip.w;
+    
+    // Offset the vertex position in screen space
+    vec4 positionClip = centerPositionClip;
+    positionClip.xy += scaledQuadVertex;// * perspectiveScale;
+    
+    gl_Position = positionClip;
+    
+    // Pass data to fragment shader
+    frag_texCoord = texCoord;
+    frag_color = color;//tone_map(color);
     frag_alpha = alpha;
 }

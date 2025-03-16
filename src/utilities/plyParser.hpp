@@ -31,6 +31,7 @@ typedef struct {
 typedef struct gaussian_splat_t {
     std::string filename;
     bool had_error;
+    bool from_ply; // if false then from splat
     std::vector<std::string> warning_and_error_messages;
     double load_time_in_ms = -1;
 
