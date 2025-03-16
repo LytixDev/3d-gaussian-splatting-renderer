@@ -58,6 +58,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 // NOTE: Only a point cloud right now
 GLuint vao, positionVBO, colorVBO, scaleVBO, alphaVBO;
 
+// NOTE: Do we need to have a free_gaussians() as well?
 void setup_gaussians()
 {
     glGenVertexArrays(1, &vao);
@@ -125,6 +126,7 @@ void render_gaussians()
 
     // Draw all Gaussians at once
     glDrawArrays(GL_POINTS, 0, splat.ws_positions.size());
+    // glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, splat.ws_positions.size());
 }
 
 
