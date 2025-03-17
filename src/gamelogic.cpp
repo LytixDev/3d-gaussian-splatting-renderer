@@ -326,8 +326,92 @@ void renderNode3D(SceneNode* node) {
     }
 }
 
+glm::mat4 lastViewMatrix;
+
+void depth_sort_and_update_buffers() {
+    glm::mat4 currentViewMatrix = camera->getViewMatrix();
+
+    bool viewMatrixChanged = true;
+    viewMatrixChanged = false;
+    for (int i = 0; i < 4 && !viewMatrixChanged; i++) {
+        for (int j = 0; j < 4 && !viewMatrixChanged; j++) {
+            // Use a small epsilon for floating point comparison
+            if (std::abs(currentViewMatrix[i][j] - lastViewMatrix[i][j]) > 0.0001f) {
+                viewMatrixChanged = true;
+            }
+        }
+    }
+
+    if (!viewMatrixChanged) {
+        return;
+    }
+
+    lastViewMatrix = currentViewMatrix;
+
+    // Structure to hold depth information for each Gaussian
+    struct GaussianDepth {
+        size_t index;
+        float depth;
+    };
+    
+    std::vector<GaussianDepth> depthSortData(splat.ws_positions.size());
+    glm::mat4 viewMatrix = camera->getViewMatrix();
+    
+    // Calculate view-space depth for each Gaussian
+    for (size_t i = 0; i < splat.ws_positions.size(); i++) {
+        glm::vec4 viewPos = viewMatrix * glm::vec4(splat.ws_positions[i], 1.0f);
+        depthSortData[i].index = i;
+        depthSortData[i].depth = -viewPos.z;  // Negative because view space goes into -Z
+    }
+    
+    // Sort Gaussians back-to-front
+    std::sort(depthSortData.begin(), depthSortData.end(),
+        [](const GaussianDepth& a, const GaussianDepth& b) {
+            return a.depth > b.depth;
+        });
+    
+    // Create temporary vectors for sorted data
+    std::vector<glm::vec3> sortedPositions(splat.ws_positions.size());
+    std::vector<glm::vec3> sortedColors(splat.colors.size());
+    std::vector<glm::vec3> sortedScales(splat.scales.size());
+    std::vector<float> sortedOpacities(splat.opacities.size());
+    
+    // Reorder data based on sorted depths
+    for (size_t i = 0; i < depthSortData.size(); i++) {
+        size_t srcIdx = depthSortData[i].index;
+        sortedPositions[i] = splat.ws_positions[srcIdx];
+        sortedColors[i] = splat.colors[srcIdx];
+        sortedScales[i] = splat.scales[srcIdx];
+        sortedOpacities[i] = splat.opacities[srcIdx];
+    }
+    
+    // Update position buffer
+    glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
+    glBufferData(GL_ARRAY_BUFFER, sortedPositions.size() * sizeof(glm::vec3),
+                 sortedPositions.data(), GL_DYNAMIC_DRAW);
+    
+    // Update color buffer
+    glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+    glBufferData(GL_ARRAY_BUFFER, sortedColors.size() * sizeof(glm::vec3),
+                 sortedColors.data(), GL_DYNAMIC_DRAW);
+    
+    // Update scale buffer
+    glBindBuffer(GL_ARRAY_BUFFER, scaleVBO);
+    glBufferData(GL_ARRAY_BUFFER, sortedScales.size() * sizeof(glm::vec3),
+                 sortedScales.data(), GL_DYNAMIC_DRAW);
+    
+    // Update opacity buffer
+    glBindBuffer(GL_ARRAY_BUFFER, alphaVBO);
+    glBufferData(GL_ARRAY_BUFFER, sortedOpacities.size() * sizeof(float),
+                 sortedOpacities.data(), GL_DYNAMIC_DRAW);
+}
+
 void render_frame(GLFWwindow* window, ProgramState *state) 
 {
+    if (state->depth_sort) {
+        depth_sort_and_update_buffers();
+    }
+
     int windowWidth, windowHeight;
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
     glViewport(0, 0, windowWidth, windowHeight);

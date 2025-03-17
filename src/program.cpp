@@ -163,6 +163,7 @@ static void imgui_draw(ProgramState *state)
     }
     ImGui::SliderFloat("Scale multipler", &state->scale_multiplier, start_scale, end_scale);
     ImGui::Checkbox("Render as point cloud", &state->render_as_point_cloud);
+    ImGui::Checkbox("Depth sort", &state->depth_sort);
 
     ImGui::End();
 }

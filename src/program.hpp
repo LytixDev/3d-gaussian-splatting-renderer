@@ -23,6 +23,7 @@ typedef struct {
     
     float scale_multiplier = 6;
     bool render_as_point_cloud = false;
+    bool depth_sort = false;
 } ProgramState;
 
 // Main OpenGL program
