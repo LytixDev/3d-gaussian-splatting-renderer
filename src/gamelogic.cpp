@@ -391,6 +391,7 @@ bool depth_sort_and_update_buffers()
     std::vector<glm::vec3> sorted_colors(splat.colors.size());
     std::vector<glm::vec3> sorted_scales(splat.scales.size());
     std::vector<float> sorted_opacities(splat.opacities.size());
+    std::vector<glm::vec4> sorted_rotations(splat.rotations.size());
     
     // Reorder data based on sorted depths
     for (size_t i = 0; i < depthSortData.size(); i++) {
@@ -415,6 +416,9 @@ bool depth_sort_and_update_buffers()
     glBindBuffer(GL_ARRAY_BUFFER, alphaVBO);
     glBufferData(GL_ARRAY_BUFFER, sorted_opacities.size() * sizeof(float),
                  sorted_opacities.data(), GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, rotationVBO);
+    glBufferData(GL_ARRAY_BUFFER, sorted_rotations.size() * sizeof(float),
+                 sorted_rotations.data(), GL_DYNAMIC_DRAW);
 
     return true;
 }
