@@ -354,10 +354,10 @@ GaussianSplat gaussian_splat_from_splat_file(std::string filename)
         
         // NOTE: Should already be normalized.
         // Normalize the quaternion
-        //float length = glm::length(rot);
-        //if (length > 0.0f) {
-        //    rot /= length;
-        //}
+        float length = glm::length(rot);
+        if (length > 0.0f) {
+            rot /= length;
+        }
         splat.rotations.push_back(rot);
 
         // NOTE: no idea

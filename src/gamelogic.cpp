@@ -36,7 +36,7 @@ Gloom::Shader* shader_point_cloud;
 
 GaussianSplat splat;
 
-GLuint vao, vbo, ebo, positionVBO, colorVBO, scaleVBO, alphaVBO;
+GLuint vao, vbo, ebo, positionVBO, colorVBO, scaleVBO, alphaVBO, rotationVBO;
 GLuint instancedVAO;
 
 
@@ -163,6 +163,17 @@ void setup_gaussians()
     glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(float), (void*)0);
     glEnableVertexAttribArray(5);
     glVertexAttribDivisor(5, 1); // Tell OpenGL this is an instanced attribute
+    
+    // Rotation buffer setup
+    glGenBuffers(1, &rotationVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, rotationVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 splat.rotations.size() * sizeof(float),
+                 splat.rotations.data(),
+                 GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(float), (void*)0);
+    glEnableVertexAttribArray(5);
+    glVertexAttribDivisor(6, 1); // Tell OpenGL this is an instanced attribute
 }
 
 void free_gaussians() 
@@ -175,6 +186,7 @@ void free_gaussians()
     glDeleteBuffers(1, &colorVBO);
     glDeleteBuffers(1, &scaleVBO);
     glDeleteBuffers(1, &alphaVBO);
+    glDeleteBuffers(1, &rotationVBO);
 }
 
 void render_gaussians(bool render_as_point_cloud) 
