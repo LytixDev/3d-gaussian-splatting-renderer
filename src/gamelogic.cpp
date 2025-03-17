@@ -84,12 +84,12 @@ void setup_quad()
     // Generate and bind VBO
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_DYNAMIC_DRAW);
     
     // Generate and bind EBO
     glGenBuffers(1, &ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quad_indices), quad_indices, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quad_indices), quad_indices, GL_DYNAMIC_DRAW);
     
     // Setup vertex attributes
     // Position attribute
@@ -126,7 +126,7 @@ void setup_gaussians()
     glBufferData(GL_ARRAY_BUFFER, 
                  splat.ws_positions.size() * sizeof(glm::vec3), 
                  splat.ws_positions.data(), 
-                 GL_STATIC_DRAW);
+                 GL_DYNAMIC_DRAW);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
     glEnableVertexAttribArray(2);
     glVertexAttribDivisor(2, 1); // Tell OpenGL this is an instanced attribute
@@ -137,7 +137,7 @@ void setup_gaussians()
     glBufferData(GL_ARRAY_BUFFER,
                  splat.colors.size() * sizeof(glm::vec3),
                  splat.colors.data(),
-                 GL_STATIC_DRAW);
+                 GL_DYNAMIC_DRAW);
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
     glEnableVertexAttribArray(3);
     glVertexAttribDivisor(3, 1); // Tell OpenGL this is an instanced attribute
@@ -148,7 +148,7 @@ void setup_gaussians()
     glBufferData(GL_ARRAY_BUFFER,
                  splat.scales.size() * sizeof(glm::vec3),
                  splat.scales.data(),
-                 GL_STATIC_DRAW);
+                 GL_DYNAMIC_DRAW);
     glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
     glEnableVertexAttribArray(4);
     glVertexAttribDivisor(4, 1); // Tell OpenGL this is an instanced attribute
@@ -159,7 +159,7 @@ void setup_gaussians()
     glBufferData(GL_ARRAY_BUFFER,
                  splat.opacities.size() * sizeof(float),
                  splat.opacities.data(),
-                 GL_STATIC_DRAW);
+                 GL_DYNAMIC_DRAW);
     glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(float), (void*)0);
     glEnableVertexAttribArray(5);
     glVertexAttribDivisor(5, 1); // Tell OpenGL this is an instanced attribute
@@ -247,6 +247,7 @@ void init_game(GLFWwindow* window, ProgramState state)
 void update_frame(GLFWwindow* window, ProgramState *state)
 {
     if (state->change_model) {
+        free_gaussians();
         state->change_model = false;
         splat = state->loaded_model;
         //std::cout << "Changing model!" << std::endl;
@@ -328,9 +329,15 @@ void renderNode3D(SceneNode* node) {
 
 glm::mat4 lastViewMatrix;
 
-void depth_sort_and_update_buffers() {
-    glm::mat4 currentViewMatrix = camera->getViewMatrix();
+typedef struct {
+    size_t index;
+    float depth;
+} GaussianDepth;
 
+bool depth_sort_and_update_buffers() 
+{
+    // Only perform the depth sort if camera has moved
+    glm::mat4 currentViewMatrix = camera->getViewMatrix();
     bool viewMatrixChanged = true;
     viewMatrixChanged = false;
     for (int i = 0; i < 4 && !viewMatrixChanged; i++) {
@@ -341,75 +348,74 @@ void depth_sort_and_update_buffers() {
             }
         }
     }
-
     if (!viewMatrixChanged) {
-        return;
+        return false;
     }
 
     lastViewMatrix = currentViewMatrix;
 
-    // Structure to hold depth information for each Gaussian
-    struct GaussianDepth {
-        size_t index;
-        float depth;
-    };
-    
     std::vector<GaussianDepth> depthSortData(splat.ws_positions.size());
     glm::mat4 viewMatrix = camera->getViewMatrix();
     
+    // ~300 ms
     // Calculate view-space depth for each Gaussian
     for (size_t i = 0; i < splat.ws_positions.size(); i++) {
         glm::vec4 viewPos = viewMatrix * glm::vec4(splat.ws_positions[i], 1.0f);
         depthSortData[i].index = i;
-        depthSortData[i].depth = -viewPos.z;  // Negative because view space goes into -Z
+        depthSortData[i].depth = -viewPos.z;  // Negative because view space goes into  the negative Z
     }
     
-    // Sort Gaussians back-to-front
+    // ~600 ms
+    // TODO: Count sort is faster, and then consider sorting on the GPU
     std::sort(depthSortData.begin(), depthSortData.end(),
         [](const GaussianDepth& a, const GaussianDepth& b) {
             return a.depth > b.depth;
         });
+
     
+    // ~500 ms
     // Create temporary vectors for sorted data
-    std::vector<glm::vec3> sortedPositions(splat.ws_positions.size());
-    std::vector<glm::vec3> sortedColors(splat.colors.size());
-    std::vector<glm::vec3> sortedScales(splat.scales.size());
-    std::vector<float> sortedOpacities(splat.opacities.size());
+    std::vector<glm::vec3> sorted_positions(splat.ws_positions.size());
+    std::vector<glm::vec3> sorted_colors(splat.colors.size());
+    std::vector<glm::vec3> sorted_scales(splat.scales.size());
+    std::vector<float> sorted_opacities(splat.opacities.size());
     
     // Reorder data based on sorted depths
     for (size_t i = 0; i < depthSortData.size(); i++) {
-        size_t srcIdx = depthSortData[i].index;
-        sortedPositions[i] = splat.ws_positions[srcIdx];
-        sortedColors[i] = splat.colors[srcIdx];
-        sortedScales[i] = splat.scales[srcIdx];
-        sortedOpacities[i] = splat.opacities[srcIdx];
+        size_t idx = depthSortData[i].index;
+        sorted_positions[i] = splat.ws_positions[idx];
+        sorted_colors[i] = splat.colors[idx];
+        sorted_scales[i] = splat.scales[idx];
+        sorted_opacities[i] = splat.opacities[idx];
     }
     
-    // Update position buffer
+    // TODO: Is this necessary? Can we do some trickery to make this fast?
+    // Update buffers
     glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
-    glBufferData(GL_ARRAY_BUFFER, sortedPositions.size() * sizeof(glm::vec3),
-                 sortedPositions.data(), GL_DYNAMIC_DRAW);
-    
-    // Update color buffer
+    glBufferData(GL_ARRAY_BUFFER, sorted_positions.size() * sizeof(glm::vec3),
+                 sorted_positions.data(), GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
-    glBufferData(GL_ARRAY_BUFFER, sortedColors.size() * sizeof(glm::vec3),
-                 sortedColors.data(), GL_DYNAMIC_DRAW);
-    
-    // Update scale buffer
+    glBufferData(GL_ARRAY_BUFFER, sorted_colors.size() * sizeof(glm::vec3),
+                 sorted_colors.data(), GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, scaleVBO);
-    glBufferData(GL_ARRAY_BUFFER, sortedScales.size() * sizeof(glm::vec3),
-                 sortedScales.data(), GL_DYNAMIC_DRAW);
-    
-    // Update opacity buffer
+    glBufferData(GL_ARRAY_BUFFER, sorted_scales.size() * sizeof(glm::vec3),
+                 sorted_scales.data(), GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, alphaVBO);
-    glBufferData(GL_ARRAY_BUFFER, sortedOpacities.size() * sizeof(float),
-                 sortedOpacities.data(), GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sorted_opacities.size() * sizeof(float),
+                 sorted_opacities.data(), GL_DYNAMIC_DRAW);
+
+    return true;
 }
 
 void render_frame(GLFWwindow* window, ProgramState *state) 
 {
     if (state->depth_sort) {
-        depth_sort_and_update_buffers();
+        auto start_time = std::chrono::high_resolution_clock::now();
+        if (depth_sort_and_update_buffers()) {
+            auto end_time = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+            state->depth_sort_time_in_ms = duration;
+        }
     }
 
     int windowWidth, windowHeight;

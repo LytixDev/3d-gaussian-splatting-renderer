@@ -116,6 +116,7 @@ static void imgui_draw(ProgramState *state)
     if (ImGui::CollapsingHeader("Model Statistics")) {
         ImGui::Text("Vertex Count: %zu", state->loaded_model.count);
         ImGui::Text("Load time: %f (ms)", state->loaded_model.load_time_in_ms);
+        ImGui::Text("Depth sort time: %f (ms)", state->depth_sort_time_in_ms);
     }
 
     // Display any warnings or errors for the currently chosen model
