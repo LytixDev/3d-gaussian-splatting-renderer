@@ -21,7 +21,7 @@ typedef struct {
     bool change_model = false;
     bool is_loading_model = false;
     
-    float scale_multiplier = 6;
+    float scale_multiplier = 4;
     bool render_as_point_cloud = false;
     bool depth_sort = false;
     float depth_sort_time_in_ms = 0.0f;

@@ -42,12 +42,12 @@ static void load_model(ProgramState *state, std::string model_path)
     std::cout << "Loaded new model:" << std::endl;
     gaussian_splat_print(loaded_model);
     // When switching models of different file types, set default scales to avoid crash
-    if (loaded_model.from_ply && !state->loaded_model.from_ply) {
-        state->scale_multiplier = 0.05;
-    }
-    if (!loaded_model.from_ply && state->loaded_model.from_ply) {
-        state->scale_multiplier = 6.0;
-    }
+    // if (loaded_model.from_ply && !state->loaded_model.from_ply) {
+    //     state->scale_multiplier = 0.05;
+    // }
+    // if (!loaded_model.from_ply && state->loaded_model.from_ply) {
+    //     state->scale_multiplier = 6.0;
+    // }
     state->loaded_model = loaded_model;
     state->current_model = model_path;
     state->change_model = true;
@@ -149,20 +149,7 @@ static void imgui_draw(ProgramState *state)
         }
     }
 
-    // Handle the scale modifier. Setting sensible defaults to avoid crashing.
-    double start_scale = 1.0;
-    double end_scale = 20.0;
-    if (state->loaded_model.from_ply && !state->render_as_point_cloud) {
-        start_scale = 0.001;
-        end_scale = 0.01;
-        if (state->scale_multiplier > 0.01) {
-            state->scale_multiplier = 0.01;
-        }
-    }
-    if (state->render_as_point_cloud && state->scale_multiplier < 1) {
-        state->scale_multiplier = 1;
-    }
-    ImGui::SliderFloat("Scale multipler", &state->scale_multiplier, start_scale, end_scale);
+    ImGui::SliderFloat("Scale multipler", &state->scale_multiplier, 1.0, 20.0);
     ImGui::Checkbox("Render as point cloud", &state->render_as_point_cloud);
     ImGui::Checkbox("Depth sort", &state->depth_sort);
 
@@ -196,7 +183,16 @@ void run_program(GLFWwindow* window)
     // Initialise global program state
     ProgramState state;
     state.all_models = list_ply_and_splat_files("../res/");
-    load_model(&state, state.all_models.at(0));
+    std::string default_model = "../res/bicycle-noroad.splat";
+    auto it = std::find(state.all_models.begin(), state.all_models.end(), default_model);
+    if (it != state.all_models.end()) {
+        load_model(&state, *it);
+    } else if (!state.all_models.empty()) {
+        load_model(&state, state.all_models.at(0));
+    } else {
+        std::cerr << "ERROR: No .ply or .splat models found in ../res/" << std::endl;
+        exit(1);
+    }
 
 	init_game(window, state);
 

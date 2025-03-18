@@ -34,6 +34,12 @@ Gloom::Shader* shader3D;
 Gloom::Shader* shader_gaussian;
 Gloom::Shader* shader_point_cloud;
 
+// Projection matrix variables
+float field_of_view = 80.0f;
+float aspect_ratio = float(windowWidth) / float(windowHeight);
+float near_clipping_plane = 0.1f;
+float far_clipping_plane = 200.0f;
+
 GaussianSplat splat;
 
 GLuint vao, vbo, ebo, positionVBO, colorVBO, scaleVBO, alphaVBO, rotationVBO;
@@ -76,6 +82,7 @@ void setup_quad()
         0, 1, 2,
         0, 2, 3
     };
+
     
     // Generate and bind VAO
     glGenVertexArrays(1, &vao);
@@ -192,13 +199,13 @@ void free_gaussians()
 void render_gaussians(bool render_as_point_cloud) 
 {
     // Calculate view projection matrix
-    glm::mat4 projection = glm::perspective(glm::radians(80.0f), 
-                                          float(windowWidth) / float(windowHeight), 
-                                          0.1f, 350.f);
+    glm::mat4 projection = glm::perspective(glm::radians(field_of_view), aspect_ratio, near_clipping_plane, far_clipping_plane);
     glm::mat4 VP = projection * camera->getViewMatrix();
     
     // Set VP matrix uniform
     glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(VP));
+    glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(camera->getViewMatrix()));
+    glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(projection));
     
     // Enable blending for transparency
     // glEnable(GL_BLEND);
@@ -273,7 +280,7 @@ void update_frame(GLFWwindow* window, ProgramState *state)
     
     camera->updateCamera(deltaTime);
 
-    glm::mat4 projection = glm::perspective(glm::radians(80.0f), float(windowWidth) / float(windowHeight), 0.1f, 350.f);
+    glm::mat4 projection = glm::perspective(glm::radians(field_of_view), aspect_ratio, near_clipping_plane, far_clipping_plane);
     glm::mat4 VP = projection * camera->getViewMatrix();
 
     glm::mat4 identity = glm::mat4(1);
@@ -449,6 +456,16 @@ void render_frame(GLFWwindow* window, ProgramState *state)
     }
     //glUniform1f(shader_gaussian->getUniformFromName("scale_multipler"), state->scale_multiplier);
     glUniform1f(1, state->scale_multiplier);
+
+
+    // Camera params used to calculate the Jacobian from view space to screen space
+    float htany = tan(glm::radians(field_of_view) / 2);
+    float htanx = htany / float(windowHeight) * float(windowWidth);
+    float focal_z = float(windowHeight) / (2 * htany);
+    glm::vec3 focal_fov = glm::vec3(htanx, htany, focal_z);
+    glUniform3fv(4, 1, glm::value_ptr(focal_fov));
+
+
 
     render_gaussians(state->render_as_point_cloud);
 }
