@@ -183,7 +183,7 @@ void run_program(GLFWwindow* window)
     // Initialise global program state
     ProgramState state;
     state.all_models = list_ply_and_splat_files("../res/");
-    std::string default_model = "../res/bicycle-noroad.splat";
+    std::string default_model = "../res/father-day.ply";
     auto it = std::find(state.all_models.begin(), state.all_models.end(), default_model);
     if (it != state.all_models.end()) {
         load_model(&state, *it);

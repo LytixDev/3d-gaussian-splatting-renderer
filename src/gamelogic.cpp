@@ -70,19 +70,24 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
 void setup_quad() 
 {
+    //float quad_vertices[] = {
+    //    -1.0f, 1.0f,
+    //    1.0f, 1.0f,
+    //    1.0f, -1.0f,
+    //    -1.0f, -1.0f
+    //};
+
     float quad_vertices[] = {
-        // positions  // texture coords
-        -0.5f,  0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.0f, 0.0f,
-         0.5f, -0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f,  1.0f, 1.0f
+        -1.0f, 1.0f,
+        -1.0f, -1.0f,
+        1.0f, -1.0f,
+        1.0f, 1.0f
     };
-    
+
     int quad_indices[] = {
         0, 1, 2,
         0, 2, 3
     };
-
     
     // Generate and bind VAO
     glGenVertexArrays(1, &vao);
@@ -91,20 +96,20 @@ void setup_quad()
     // Generate and bind VBO
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
     
     // Generate and bind EBO
     glGenBuffers(1, &ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quad_indices), quad_indices, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quad_indices), quad_indices, GL_STATIC_DRAW);
     
     // Setup vertex attributes
     // Position attribute
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
+    //glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    //glEnableVertexAttribArray(0);
     // Texture coordinate attribute
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
+    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    //glEnableVertexAttribArray(1);
 }
 
 void setup_gaussians() 
@@ -122,10 +127,12 @@ void setup_gaussians()
     
     // NOTE: Clean up this
     // Setup quad vertex attributes
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    //glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
+
+    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    //glEnableVertexAttribArray(1);
     
     // Position buffer setup
     glGenBuffers(1, &positionVBO);
@@ -133,7 +140,7 @@ void setup_gaussians()
     glBufferData(GL_ARRAY_BUFFER, 
                  splat.ws_positions.size() * sizeof(glm::vec3), 
                  splat.ws_positions.data(), 
-                 GL_DYNAMIC_DRAW);
+                 GL_STATIC_DRAW);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
     glEnableVertexAttribArray(2);
     glVertexAttribDivisor(2, 1); // Tell OpenGL this is an instanced attribute
@@ -144,7 +151,7 @@ void setup_gaussians()
     glBufferData(GL_ARRAY_BUFFER,
                  splat.colors.size() * sizeof(glm::vec3),
                  splat.colors.data(),
-                 GL_DYNAMIC_DRAW);
+                 GL_STATIC_DRAW);
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
     glEnableVertexAttribArray(3);
     glVertexAttribDivisor(3, 1); // Tell OpenGL this is an instanced attribute
@@ -155,7 +162,7 @@ void setup_gaussians()
     glBufferData(GL_ARRAY_BUFFER,
                  splat.scales.size() * sizeof(glm::vec3),
                  splat.scales.data(),
-                 GL_DYNAMIC_DRAW);
+                 GL_STATIC_DRAW);
     glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
     glEnableVertexAttribArray(4);
     glVertexAttribDivisor(4, 1); // Tell OpenGL this is an instanced attribute
@@ -166,7 +173,7 @@ void setup_gaussians()
     glBufferData(GL_ARRAY_BUFFER,
                  splat.opacities.size() * sizeof(float),
                  splat.opacities.data(),
-                 GL_DYNAMIC_DRAW);
+                 GL_STATIC_DRAW);
     glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(float), (void*)0);
     glEnableVertexAttribArray(5);
     glVertexAttribDivisor(5, 1); // Tell OpenGL this is an instanced attribute
@@ -177,7 +184,7 @@ void setup_gaussians()
     glBufferData(GL_ARRAY_BUFFER,
                  splat.rotations.size() * sizeof(float),
                  splat.rotations.data(),
-                 GL_DYNAMIC_DRAW);
+                 GL_STATIC_DRAW);
     glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(float), (void*)0);
     glEnableVertexAttribArray(5);
     glVertexAttribDivisor(6, 1); // Tell OpenGL this is an instanced attribute
@@ -407,25 +414,26 @@ bool depth_sort_and_update_buffers()
         sorted_colors[i] = splat.colors[idx];
         sorted_scales[i] = splat.scales[idx];
         sorted_opacities[i] = splat.opacities[idx];
+        sorted_rotations[i] = splat.rotations[idx];
     }
     
     // TODO: Is this necessary? Can we do some trickery to make this fast?
     // Update buffers
     glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
     glBufferData(GL_ARRAY_BUFFER, sorted_positions.size() * sizeof(glm::vec3),
-                 sorted_positions.data(), GL_DYNAMIC_DRAW);
+                 sorted_positions.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
     glBufferData(GL_ARRAY_BUFFER, sorted_colors.size() * sizeof(glm::vec3),
-                 sorted_colors.data(), GL_DYNAMIC_DRAW);
+                 sorted_colors.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, scaleVBO);
     glBufferData(GL_ARRAY_BUFFER, sorted_scales.size() * sizeof(glm::vec3),
-                 sorted_scales.data(), GL_DYNAMIC_DRAW);
+                 sorted_scales.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, alphaVBO);
     glBufferData(GL_ARRAY_BUFFER, sorted_opacities.size() * sizeof(float),
-                 sorted_opacities.data(), GL_DYNAMIC_DRAW);
+                 sorted_opacities.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, rotationVBO);
     glBufferData(GL_ARRAY_BUFFER, sorted_rotations.size() * sizeof(float),
-                 sorted_rotations.data(), GL_DYNAMIC_DRAW);
+                 sorted_rotations.data(), GL_STATIC_DRAW);
 
     return true;
 }

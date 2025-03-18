@@ -1,6 +1,5 @@
 #version 430 core
-layout (location = 0) in vec2 quadVertex; // Local quad coordinates (-0.5 to 0.5)
-layout (location = 1) in vec2 texture_coord;
+layout (location = 0) in vec2 quadVertex;
 
 // Per-instance attributes
 layout (location = 2) in vec3 position_ws;
@@ -16,7 +15,6 @@ uniform layout(location = 3) mat4 projection_matrix;
 uniform layout(location = 4) vec3 hfov_focal;
 
 // To fragment shader !
-out vec2 frag_texture_coord;
 out vec3 frag_color;
 out float frag_alpha;
 out vec3 conic;
@@ -85,7 +83,7 @@ void main() {
 
 
     if (any(greaterThan(abs(pos2d.xyz), vec3(1.3)))) {
-        gl_Position = vec4(-100, -100, -100, 1);
+        gl_Position = vec4(-200, -200, -200, 1);
         return;	
     }
 
@@ -104,7 +102,6 @@ void main() {
     cov2d[1][1] += 0.3f; 
 
     float det = cov2d[0][0] * cov2d[1][1] - cov2d[0][1] * cov2d[1][0];
-
     if (det == 0.0f)
         gl_Position = vec4(0.f, 0.f, 0.f, 0.f);
 
@@ -154,7 +151,6 @@ void main() {
     // 
     // gl_Position = clip_pos;
     // 
-    // frag_texture_coord = texture_coord;
     // frag_color = color;
     // frag_alpha = alpha;
 }

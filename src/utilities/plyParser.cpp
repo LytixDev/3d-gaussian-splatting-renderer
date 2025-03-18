@@ -312,7 +312,7 @@ GaussianSplat gaussian_splat_from_splat_file(std::string filename)
     // Each vertex in the .splat format consists of:
     // - 3 floats for position
     // - 3 floats for scales
-    // - 4 bytes for colors
+    // - 4 bytes for colors (final is opacity)
     // - 4 bytes for rotation
     const size_t bytes_per_vertex = 12 + 12 + 4 + 4;
     
@@ -356,7 +356,7 @@ GaussianSplat gaussian_splat_from_splat_file(std::string filename)
             color_data[2] / 255.0f
         ));
         // Opacity. Already calculated :: 1 / (1 + e^(-opacity)). Normalize it as well.
-        splat.opacities.push_back(color_data[3] / 255.0f);
+        splat.opacities.push_back(float(color_data[3]) / 255.0f);
 
         // Read rotation. Normalize each component between -1 to 1.
         file.read(reinterpret_cast<char*>(rotation_data), sizeof(uint8_t) * 4);
@@ -369,14 +369,11 @@ GaussianSplat gaussian_splat_from_splat_file(std::string filename)
             float(rotation_data[1]) - 128.0f / 128.0f,
             float(rotation_data[2]) - 128.0f / 128.0f,
             float(rotation_data[3]) - 128.0f / 128.0f
-            // float(rotation_data[0])  * 100000.0f,
-            // float(rotation_data[1]) * 100000.0f,
-            // float(rotation_data[2]) * 100000.0f,
-            // float(rotation_data[3]) * 100000.0f
         );
         
         //splat.rotations.push_back(normalize_quaternion(rot));
-        splat.rotations.push_back(normalize_quaternion(rot));
+        splat.rotations.push_back(rot);
+        //splat.rotations.push_back(glm::vec4(0));
 
         if (!file) {
             std::stringstream ss;
@@ -411,8 +408,8 @@ void gaussian_splat_print(GaussianSplat &splat)
     //     std::cout << "Color: (" << color.r << ", " << color.g << ", " << color.b << ")\n";
     // }
     
-    for (const auto& scales : splat.scales) {
-        std::cout << "Scales: (" << scales.x << ", " << scales.y << ", " << scales.z << ")\n";
-    }
+    // for (const auto& scales : splat.scales) {
+    //     std::cout << "Scales: (" << scales.x << ", " << scales.y << ", " << scales.z << ")\n";
+    // }
 }
 

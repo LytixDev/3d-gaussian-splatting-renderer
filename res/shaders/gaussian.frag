@@ -21,7 +21,6 @@
 //}
 
 
-in vec2 frag_texture_coord;
 in vec3 frag_color;
 in float frag_alpha;
 in vec3 conic;
