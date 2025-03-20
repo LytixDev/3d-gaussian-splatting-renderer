@@ -104,14 +104,14 @@ static std::vector<std::string> next_line_tokens(std::ifstream &file) {
 
 
 static glm::vec4 normalize_quaternion(glm::vec4 r) {
-	float ss = r.x * r.x + r.y * r.y + r.z * r.z + r.w * r.w;
-	float norm = std::sqrt(ss);
-	return glm::vec4(r.x / norm, r.y / norm, r.z / norm, r.w / norm);
+    float ss = r.x * r.x + r.y * r.y + r.z * r.z + r.w * r.w;
+    float norm = std::sqrt(ss);
+    return glm::vec4(r.x / norm, r.y / norm, r.z / norm, r.w / norm);
 }
 
 
 static float sigmoid(float opacity) {
-	return 1.0 / (1.0 + std::exp(-opacity));
+    return 1.0 / (1.0 + std::exp(-opacity));
 }
 
 // Baed on https://github.com/graphdeco-inria/diff-gaussian-rasterization/blob/main/cuda_rasterizer/forward.cu
@@ -283,6 +283,11 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
         if (!strange_format) {
             splat.scales.push_back(glm::exp(glm::vec3(data[55], data[56], data[57])));
             splat.rotations.push_back(normalize_quaternion(glm::vec4(data[58], data[59], data[60], data[61])));
+            //splat.rotations.push_back((-glm::vec4(1000 * data[58], 1000 * data[59], 100* data[60], 20 * data[61])));
+            //splat.rotations.push_back(normalize_quaternion(glm::vec4(data[61], data[58], data[59], data[60])));
+            //splat.rotations.push_back(glm::vec4(data[58], data[59], data[60], data[61]));
+            //splat.rotations.push_back(normalize_quaternion(glm::vec4(data[57], data[58], data[59], data[60])));
+            //splat.rotations.push_back(normalize_quaternion(glm::vec4(0.f, 0.f, 0.f, 0.f)));
         } else {
             splat.scales.push_back(glm::exp(glm::vec3(data[55], data[56], data[61])));
             splat.rotations.push_back(normalize_quaternion(glm::vec4(data[57], data[58], data[59], data[60])));
@@ -356,7 +361,6 @@ GaussianSplat gaussian_splat_from_splat_file(std::string filename)
         // Read scales
         file.read(reinterpret_cast<char*>(scales), sizeof(float) * 3);
         splat.scales.push_back(glm::vec3(scales[0], scales[1], scales[2]));
-        //splat.scales.push_back(glm::vec3(scales[0], scales[1], 1e-06));
 
         // Read color. Normalize it between 0-1
         file.read(reinterpret_cast<char*>(color_data), sizeof(uint8_t) * 4);
@@ -375,14 +379,14 @@ GaussianSplat gaussian_splat_from_splat_file(std::string filename)
             //rotation_data[1],
             //rotation_data[2],
             //rotation_data[3]
-            float(rotation_data[0]) - 128.0f / 128.0f,
-            float(rotation_data[1]) - 128.0f / 128.0f,
-            float(rotation_data[2]) - 128.0f / 128.0f,
-            float(rotation_data[3]) - 128.0f / 128.0f
+            (float(rotation_data[0]) - 128.0f) / 128.0f,
+            (float(rotation_data[1]) - 128.0f) / 128.0f,
+            (float(rotation_data[2]) - 128.0f) / 128.0f,
+            (float(rotation_data[3]) - 128.0f) / 128.0f
         );
         
-        //splat.rotations.push_back(normalize_quaternion(rot));
         splat.rotations.push_back(rot);
+        //splat.rotations.push_back(rot);
         //splat.rotations.push_back(glm::vec4(0));
 
         if (!file) {
@@ -420,6 +424,10 @@ void gaussian_splat_print(GaussianSplat &splat)
     
     // for (const auto& scales : splat.scales) {
     //     std::cout << "Scales: (" << scales.x << ", " << scales.y << ", " << scales.z << ")\n";
+    // }
+    
+    // for (const auto& rots : splat.rotations) {
+    //     std::cout << "rotations: (" << rots.x << ", " << rots.y << ", " << rots.z << ", " <<  rots.w << ")\n";
     // }
 }
 

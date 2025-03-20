@@ -11,8 +11,14 @@
 #include <utilities/window.hpp>
 #include <utilities/plyParser.hpp>
 
+typedef enum {
+    Normal = 0,
+    Quad,
+    Albedo,
+    Depth,
+} DrawMode;
 
-typedef struct {
+typedef struct program_state_t {
     std::string current_model;
     std::vector<std::string> all_models;
     GaussianSplat loaded_model;
@@ -25,6 +31,11 @@ typedef struct {
     bool render_as_point_cloud = false;
     bool depth_sort = false;
     float depth_sort_time_in_ms = 0.0f;
+
+    DrawMode draw_mode = Normal;
+
+    int windowWidth = windowWidthDefault;
+    int windowHeight = windowHeightDefault;
 } ProgramState;
 
 // Main OpenGL program
