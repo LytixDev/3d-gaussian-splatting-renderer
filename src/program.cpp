@@ -39,6 +39,46 @@ static std::vector<std::string> list_ply_and_splat_files(const std::string& dire
 static void load_model(ProgramState *state, std::string model_path)
 {
     GaussianSplat loaded_model = gaussian_splat_from_file(model_path);
+
+    // loaded_model.count = 4;
+    // std::vector<glm::vec3> ws_positions = {
+    //     {0.0f, 0.0f, 0.0f},
+    //     {1.0f, 0.0f, 0.0f},
+    //     {0.0f, 1.0f, 0.0f},
+    //     {0.0f, 0.0f, 1.0f}
+    // };
+
+    // std::vector<glm::vec4> rotations = {
+    //     {1.0f, 0.0f, 0.0f, 0.0f},
+    //     {1.0f, 0.0f, 0.0f, 0.0f},
+    //     {1.0f, 0.0f, 0.0f, 0.0f},
+    //     {1.0f, 0.0f, 0.0f, 0.0f}
+    // };
+
+    // std::vector<glm::vec3> scales = {
+    //     {0.03f, 0.03f, 0.03f},
+    //     {0.2f,  0.03f, 0.03f},
+    //     {0.03f, 0.2f,  0.03f},
+    //     {0.03f, 0.03f, 0.2f}
+    // };
+
+    // std::vector<glm::vec3> colors = {
+    //     {(1.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f, (1.0f - 0.5f) / 0.28209f},
+    //     {(1.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f},
+    //     {(0.0f - 0.5f) / 0.28209f, (1.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f},
+    //     {(0.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f, (1.0f - 0.5f) / 0.28209f}
+    // };
+
+    // std::vector<float> opacities = {1.0f, 1.0f, 1.0f, 1.0f};
+    // loaded_model.ws_positions = ws_positions;
+    // loaded_model.scales = scales;
+    // loaded_model.rotations = rotations;
+    // loaded_model.colors = colors;
+
+
+
+
+
     std::cout << "Loaded new model:" << std::endl;
     gaussian_splat_print(loaded_model);
     // When switching models of different file types, set default scales to avoid crash
@@ -194,6 +234,7 @@ void run_program(GLFWwindow* window)
     state.all_models = list_ply_and_splat_files("../res/");
     std::string default_model = "../res/father-day.ply";
     auto it = std::find(state.all_models.begin(), state.all_models.end(), default_model);
+
     if (it != state.all_models.end()) {
         load_model(&state, *it);
     } else if (!state.all_models.empty()) {

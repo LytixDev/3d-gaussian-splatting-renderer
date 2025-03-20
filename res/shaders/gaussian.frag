@@ -23,6 +23,7 @@ void main() {
     }
     // Albedo 
     else if (frag_draw_mode == 2) {
+        //frag_color_out.rgb = frag_color;
         frag_color_out.rgb = frag_color * exp(power);
         frag_color_out.a = alpha > 0.22 ? 1 : 0;
     }

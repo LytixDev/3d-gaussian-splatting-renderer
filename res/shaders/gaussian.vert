@@ -86,7 +86,54 @@ vec3 cov2d(vec4 mean, float focal_x, float focal_y, float tan_fovx, float tan_fo
     return vec3(cov[0][0], cov[0][1], cov[1][1]);
 }
 
+mat4 defaultViewMatrix() {
+    vec3 eye = vec3(0.0, 0.0, 5.0);
+    vec3 center = vec3(0.0, 0.0, 0.0);
+    vec3 up = vec3(0.0, 1.0, 0.0);
+
+    vec3 f = normalize(center - eye);
+    vec3 s = normalize(cross(f, up));
+    vec3 u = cross(s, f);
+
+    return mat4(
+        vec4(s, 0.0),
+        vec4(u, 0.0),
+        vec4(-f, 0.0),
+        vec4(-dot(s, eye), -dot(u, eye), dot(f, eye), 1.0)
+    );
+}
+
+mat4 defaultProjectionMatrix() {
+    float fov = radians(45.0);
+    float aspect = 16.0 / 9.0;
+    float near = 0.1;
+    float far = 100.0;
+
+    float tanHalfFov = tan(fov / 2.0);
+    float range = near - far;
+
+    return mat4(
+        1.0 / (aspect * tanHalfFov), 0.0, 0.0, 0.0,
+        0.0, 1.0 / tanHalfFov, 0.0, 0.0,
+        0.0, 0.0, (near + far) / range, -1.0,
+        0.0, 0.0, (2.0 * near * far) / range, 0.0
+    );
+}
+
+vec3 defaultHFovFocal() {
+    float htany = tan(radians(45.0) / 2.0);
+    float htanx = htany / (1080.0 * 1.5) * (1920.0 * 1.5);
+    float focal_z = (1080 * 1.5) / (2.0 * htany);
+    return vec3(htanx, htany, focal_z);
+}
+
 void main() { 
+    mat4 view = defaultViewMatrix();
+    mat4 proj = defaultProjectionMatrix();
+    vec3 hfov = defaultHFovFocal();
+    //view = view_matrix;
+    proj = projection_matrix;
+
     // Frustum culling
 	//vec4 p_view = view_matrix * vec4(position_ws, 1);
     //if (p_view.z < -200.0f) {
@@ -100,13 +147,13 @@ void main() {
     //}
 
     // To camera space
-    vec4 position_cs = view_matrix * vec4(position_ws, 1.0);
-    vec4 position_2d = projection_matrix * position_cs;
+    vec4 position_cs = view * vec4(position_ws, 1.0);
+    vec4 position_2d = proj * position_cs;
     position_2d.xyz = position_2d.xyz / position_2d.w;
     position_2d.w = 1.0f;
-    vec2 wh = 2 * hfov_focal.xy * hfov_focal.z;
+    vec2 wh = 2 * hfov.xy * hfov.z;
 
-    vec3 cov2d = cov2d(position_cs, hfov_focal.z, hfov_focal.z, hfov_focal.x, hfov_focal.y, cov3d, view_matrix);
+    vec3 cov2d = cov2d(position_cs, hfov.z, hfov.z, hfov.x, hfov.y, cov3d, view);
 	float det = (cov2d.x * cov2d.z - cov2d.y * cov2d.y);
     // Gaussian is not visible from this view.
 	if (det == 0.0f) {
@@ -120,7 +167,7 @@ void main() {
     // Size of quad in screen space. Multiplying by 3 means 99% of the Gaussian is covered by the quad.
     vec2 quad_ss = vec2(3.0f * sqrt(cov2d.x), 3.0f * sqrt(cov2d.z));
     // If quad is huge, something has gone bad
-    // if (abs(cov2d.x * cov2d.z) > 10000) {
+    // if (abs(cov2d.x * cov2d.z) > 100000) {
 	// 	gl_Position = vec4(0.f, 0.f, 0.f, 0.f);
     //     return;
     // }
