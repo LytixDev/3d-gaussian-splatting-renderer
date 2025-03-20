@@ -43,7 +43,7 @@ GLFWwindow* initialise()
     glfwWindowHint(GLFW_SAMPLES, windowSamples);  // MSAA
 
     // Create window using GLFW
-    GLFWwindow* window = glfwCreateWindow(windowWidth, windowHeight, windowTitle.c_str(), nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(windowWidthDefault, windowHeightDefault, windowTitle.c_str(), nullptr, nullptr);
 
     // Ensure the window is set up correctly
     if (!window) {

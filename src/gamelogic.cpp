@@ -35,8 +35,7 @@ Gloom::Shader* shader_gaussian;
 Gloom::Shader* shader_point_cloud;
 
 // Projection matrix variables
-float field_of_view = 80.0f;
-float aspect_ratio = float(windowWidth) / float(windowHeight);
+float field_of_view = glm::radians(80.0f);
 float near_clipping_plane = 0.1f;
 float far_clipping_plane = 200.0f;
 
@@ -102,14 +101,6 @@ void setup_quad()
     glGenBuffers(1, &ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quad_indices), quad_indices, GL_STATIC_DRAW);
-    
-    // Setup vertex attributes
-    // Position attribute
-    //glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-    //glEnableVertexAttribArray(0);
-    // Texture coordinate attribute
-    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-    //glEnableVertexAttribArray(1);
 }
 
 void setup_gaussians() 
@@ -126,13 +117,9 @@ void setup_gaussians()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     
     // NOTE: Clean up this
-    // Setup quad vertex attributes
-    //glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
     glEnableVertexAttribArray(0);
 
-    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-    //glEnableVertexAttribArray(1);
     
     // Position buffer setup
     glGenBuffers(1, &positionVBO);
@@ -182,11 +169,11 @@ void setup_gaussians()
     glGenBuffers(1, &rotationVBO);
     glBindBuffer(GL_ARRAY_BUFFER, rotationVBO);
     glBufferData(GL_ARRAY_BUFFER,
-                 splat.rotations.size() * sizeof(float),
+                 splat.rotations.size() * sizeof(glm::vec4),
                  splat.rotations.data(),
                  GL_STATIC_DRAW);
-    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(float), (void*)0);
-    glEnableVertexAttribArray(5);
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), (void*)0);
+    glEnableVertexAttribArray(6);
     glVertexAttribDivisor(6, 1); // Tell OpenGL this is an instanced attribute
 }
 
@@ -203,10 +190,11 @@ void free_gaussians()
     glDeleteBuffers(1, &rotationVBO);
 }
 
-void render_gaussians(bool render_as_point_cloud) 
+void render_gaussians(ProgramState *state, bool render_as_point_cloud) 
 {
     // Calculate view projection matrix
-    glm::mat4 projection = glm::perspective(glm::radians(field_of_view), aspect_ratio, near_clipping_plane, far_clipping_plane);
+    float aspect_ratio = float(state->windowWidth) / float(state->windowHeight);
+    glm::mat4 projection = glm::perspective(field_of_view, aspect_ratio, near_clipping_plane, far_clipping_plane);
     glm::mat4 VP = projection * camera->getViewMatrix();
     
     // Set VP matrix uniform
@@ -287,7 +275,8 @@ void update_frame(GLFWwindow* window, ProgramState *state)
     
     camera->updateCamera(deltaTime);
 
-    glm::mat4 projection = glm::perspective(glm::radians(field_of_view), aspect_ratio, near_clipping_plane, far_clipping_plane);
+    float aspect_ratio = float(state->windowWidth) / float(state->windowHeight);
+    glm::mat4 projection = glm::perspective(field_of_view, aspect_ratio, near_clipping_plane, far_clipping_plane);
     glm::mat4 VP = projection * camera->getViewMatrix();
 
     glm::mat4 identity = glm::mat4(1);
@@ -432,7 +421,7 @@ bool depth_sort_and_update_buffers()
     glBufferData(GL_ARRAY_BUFFER, sorted_opacities.size() * sizeof(float),
                  sorted_opacities.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, rotationVBO);
-    glBufferData(GL_ARRAY_BUFFER, sorted_rotations.size() * sizeof(float),
+    glBufferData(GL_ARRAY_BUFFER, sorted_rotations.size() * sizeof(glm::vec4),
                  sorted_rotations.data(), GL_STATIC_DRAW);
 
     return true;
@@ -449,9 +438,8 @@ void render_frame(GLFWwindow* window, ProgramState *state)
         }
     }
 
-    int windowWidth, windowHeight;
-    glfwGetWindowSize(window, &windowWidth, &windowHeight);
-    glViewport(0, 0, windowWidth, windowHeight);
+    glfwGetWindowSize(window, &state->windowWidth, &state->windowHeight);
+    glViewport(0, 0, state->windowWidth, state->windowHeight);
 
     shader3D->activate();
     glUniform3fv(shader3D->getUniformFromName("camera_position"), 1, glm::value_ptr(camera->getPosition()));
@@ -466,12 +454,15 @@ void render_frame(GLFWwindow* window, ProgramState *state)
     glUniform1f(1, state->scale_multiplier);
 
     // Camera params used to calculate the Jacobian from view space to screen space
-    float htany = tan(glm::radians(field_of_view) / 2);
-    float htanx = htany * aspect_ratio;
+    float htany = tan(field_of_view / 2);
+    float htanx = htany / float(state->windowHeight) * float(state->windowHeight);
     // Distance to the focal plane based on the vertical fov
-    float focal_z = float(windowHeight) / (2 * htany);
+    float focal_z = float(state->windowHeight) / (2 * htany);
     glm::vec3 focal_fov = glm::vec3(htanx, htany, focal_z);
     glUniform3fv(4, 1, glm::value_ptr(focal_fov));
 
-    render_gaussians(state->render_as_point_cloud);
+
+    glUniform1i(5, state->draw_mode);
+
+    render_gaussians(state, state->render_as_point_cloud);
 }

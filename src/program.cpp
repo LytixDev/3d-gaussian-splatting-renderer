@@ -149,9 +149,17 @@ static void imgui_draw(ProgramState *state)
         }
     }
 
-    ImGui::SliderFloat("Scale multipler", &state->scale_multiplier, 0.5, 20.0);
+    ImGui::SliderFloat("Scale multipler", &state->scale_multiplier, -10.0, 10.0);
     ImGui::Checkbox("Render as point cloud", &state->render_as_point_cloud);
     ImGui::Checkbox("Depth sort", &state->depth_sort);
+
+    // Draw mode
+    // TODO: option to choose between Normal, albedo, ...
+    const char *draw_modes[] = { "Normal", "Quad", "Albedo", "Depth" };
+    int current_draw_mode = static_cast<int>(state->draw_mode);
+    if (ImGui::Combo("Draw Mode", &current_draw_mode, draw_modes, IM_ARRAYSIZE(draw_modes))) {
+        state->draw_mode = static_cast<DrawMode>(current_draw_mode); // Assuming DrawMode is an enum
+    }
 
     ImGui::End();
 }
@@ -168,6 +176,7 @@ void run_program(GLFWwindow* window)
 
     // Configure miscellaneous OpenGL settings
     glEnable(GL_CULL_FACE);
+    //glDisable(GL_CULL_FACE);
 
     // Disable built-in dithering
     glDisable(GL_DITHER);

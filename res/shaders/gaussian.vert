@@ -13,12 +13,14 @@ uniform layout(location = 1) float scale_multipler;
 uniform layout(location = 2) mat4 view_matrix;
 uniform layout(location = 3) mat4 projection_matrix;
 uniform layout(location = 4) vec3 hfov_focal;
+uniform layout(location = 5) int draw_mode;
 
 // To fragment shader
 out vec3 frag_color;
 out float frag_alpha;
 out vec3 conic;
 out vec2 coordxy;
+flat out int frag_draw_mode;
 
 mat3 cov3d(vec4 r, vec3 s) {
     // NOTE: Could these be constructed ahead of time?
@@ -42,6 +44,12 @@ mat3 cov3d(vec4 r, vec3 s) {
         0.0, scale_multipler * s.y, 0.0,
         0.0, 0.0, scale_multipler * s.z
     );
+    
+    // mat3 scale_matrix = mat3(
+    //     s.x, 0.0, 0.0,
+    //     0.0, s.y, 0.0,
+    //     0.0, 0.0, s.z
+    // );
     
     mat3 transformation = scale_matrix * rotation_matrix;
     
@@ -83,30 +91,25 @@ vec3 cov2d(vec4 mean, float focal_x, float focal_y, float tan_fovx, float tan_fo
     return vec3(cov[0][0], cov[0][1], cov[1][1]);
 }
 
+void main() { 
+    // Frustum culling
+	//vec4 p_view = view_matrix * vec4(position_ws, 1);
+    //if (p_view.z < -200.0f) {
+    //    gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
+    //    return;
+    //}
 
-void main() {
     mat3 cov3d = cov3d(rotation, scale);
 
     // To camera space
     vec4 position_cs = view_matrix * vec4(position_ws, 1.0);
+
+
     vec4 position_2d = projection_matrix * position_cs;
     position_2d.xyz = position_2d.xyz / position_2d.w;
     position_2d.w = 1.f;
     vec2 wh = 2 * hfov_focal.xy * hfov_focal.z;
 
-    // Near-plane 0.1f, far-plane 200f
-    // TODO: Reject gaussians with position_ws close to the near or far planes
-    // float near_threshold = 0.15f; // Slightly beyond near plane
-    // float far_threshold = 195.5f;  // Slightly before far plane
-    // 
-    // if (-position_cs.z < near_threshold || -position_cs.z > far_threshold) {
-    //     gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
-    //     return;
-    // }
-    // if (all(lessThan(abs(position_2d.xyz), vec3(0.1)))) {
-    //     gl_Position = vec4(0, 0, 0, 0);
-    //     return;	
-    // }
     if (all(greaterThan(abs(position_2d.xyz), vec3(1.3)))) {
 		gl_Position = vec4(0, 0, 0, 0);
         return;	
@@ -123,9 +126,15 @@ void main() {
     
     float det_inv = 1.f / det;
 	conic = vec3(cov2d.z * det_inv, -cov2d.y * det_inv, cov2d.x * det_inv);
-    
+
     // Size of quad in screen space. Multiplying by 3 means 99% of the Gaussian is covered by the quad.
     vec2 quad_ss = vec2(3.0f * sqrt(cov2d.x), 3.0f * sqrt(cov2d.z));
+    // If quad is huge, something has gone bad
+    // if (abs(cov2d.x * cov2d.z) > 10000) {
+	// 	gl_Position = vec4(0.f, 0.f, 0.f, 0.f);
+    //     return;
+    // }
+
     // Size of quad in ndc
     vec2 quad_ndc = quad_ss / wh * 2;
 
@@ -138,4 +147,5 @@ void main() {
     frag_alpha = alpha;
     // Pixel coordinates
     coordxy = quadVertex * quad_ss;
+    frag_draw_mode = draw_mode;
 }
