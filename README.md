@@ -1,6 +1,6 @@
 # 3d Gaussian Splatting Renderer 
 
-![renderer](pic2.png)
+![imageeee](showcase.png)
 
 
 Final project for the course TDT4230 - Graphics and Visualization.
