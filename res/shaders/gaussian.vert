@@ -14,143 +14,128 @@ uniform layout(location = 2) mat4 view_matrix;
 uniform layout(location = 3) mat4 projection_matrix;
 uniform layout(location = 4) vec3 hfov_focal;
 
-// To fragment shader !
+// To fragment shader
 out vec3 frag_color;
 out float frag_alpha;
 out vec3 conic;
 out vec2 coordxy;
 
-
-mat3 computeCov3D(vec4 rots, vec3 scales) {
-  float scaleMod = 1.0f;
-
-  vec3 firstRow = vec3(
-    1.f - 2.f * (rots.z * rots.z + rots.w * rots.w),
-    2.f * (rots.y * rots.z - rots.x * rots.w),      
-    2.f * (rots.y * rots.w + rots.x * rots.z)       
-  );
-
-  vec3 secondRow = vec3(
-    2.f * (rots.y * rots.z + rots.x * rots.w),       
-    1.f - 2.f * (rots.y * rots.y + rots.w * rots.w), 
-    2.f * (rots.z * rots.w - rots.x * rots.y)        
-  );
-
-  vec3 thirdRow = vec3(
-    2.f * (rots.y * rots.w - rots.x * rots.z),       
-    2.f * (rots.z * rots.w + rots.x * rots.y),     
-    1.f - 2.f * (rots.y * rots.y + rots.z * rots.z) 
-  );
-
-
-  mat3 scaleMatrix = mat3(
-    scaleMod * scales.x, 0, 0, 
-    0, scaleMod * scales.y, 0,
-    0, 0, scaleMod * scales.z
-  );
-
-  mat3 rotMatrix = mat3(
-    firstRow,
-    secondRow,
-    thirdRow
-  );
-
-  mat3 mMatrix = scaleMatrix * rotMatrix;
-
-  mat3 sigma = transpose(mMatrix) * mMatrix;
-  return sigma;
+mat3 cov3d(vec4 r, vec3 s) {
+    // NOTE: Could these be constructed ahead of time?
+    // Rotation matrix from quaternion
+    mat3 rotation_matrix = mat3(
+        1.0 - 2.0 * (r.z * r.z + r.w * r.w),
+        2.0 * (r.y * r.z + r.x * r.w),
+        2.0 * (r.y * r.w - r.x * r.z),
+        
+        2.0 * (r.y * r.z - r.x * r.w),
+        1.0 - 2.0 * (r.y * r.y + r.w * r.w),
+        2.0 * (r.z * r.w + r.x * r.y),
+        
+        2.0 * (r.y * r.w + r.x * r.z),
+        2.0 * (r.z * r.w - r.x * r.y),
+        1.0 - 2.0 * (r.y * r.y + r.z * r.z)
+    );
+    
+    mat3 scale_matrix = mat3(
+        scale_multipler * s.x, 0.0, 0.0,
+        0.0, scale_multipler * s.y, 0.0,
+        0.0, 0.0, scale_multipler * s.z
+    );
+    
+    mat3 transformation = scale_matrix * rotation_matrix;
+    
+    // Final 3d covariance matrix
+    return transpose(transformation) * transformation;
 }
 
-void main() {
-    mat3 cov3d = computeCov3D(rotation, scale);
+// Based on: https://github.com/graphdeco-inria/diff-gaussian-rasterization/blob/main/cuda_rasterizer/forward.cu
+vec3 cov2d(vec4 mean, float focal_x, float focal_y, float tan_fovx, float tan_fovy, mat3 cov3D, mat4 viewmatrix)
+{
+    vec4 t = mean;
+    float limx = 1.3f * tan_fovx;
+    float limy = 1.3f * tan_fovy;
+    float txtz = t.x / t.z;
+    float tytz = t.y / t.z;
+    t.x = min(limx, max(-limx, txtz)) * t.z;
+    t.y = min(limy, max(-limy, tytz)) * t.z;
 
-    // position camera space
-    vec4 cam = view_matrix * vec4(position_ws, 1.0);
-    vec4 pos2d = projection_matrix * cam;
-    pos2d.xyz = pos2d.xyz / pos2d.w;
-    pos2d.w = 1.f;
+    mat3 J = mat3(
+        focal_x / t.z, 0.0f, -(focal_x * t.x) / (t.z * t.z),
+		0.0f, focal_y / t.z, -(focal_y * t.y) / (t.z * t.z),
+		0, 0, 0
+    );
+    mat3 W = transpose(mat3(viewmatrix));
+    mat3 T = W * J;
+
+    mat3 Vrk = mat3(
+        cov3D[0][0], cov3D[0][1], cov3D[0][2],
+        cov3D[1][0], cov3D[1][1], cov3D[1][2],
+        cov3D[2][0], cov3D[2][1], cov3D[2][2]
+    );
+
+    //mat3 cov = transpose(T) * transpose(Vrk) * T;
+    mat3 cov = transpose(T) * transpose(cov3D) * T;
+	// Apply low-pass filter: every Gaussian should be at least
+	// one pixel wide/high. Discard 3rd row and column.
+	cov[0][0] += 0.3f;
+	cov[1][1] += 0.3f;
+    return vec3(cov[0][0], cov[0][1], cov[1][1]);
+}
+
+
+void main() {
+    mat3 cov3d = cov3d(rotation, scale);
+
+    // To camera space
+    vec4 position_cs = view_matrix * vec4(position_ws, 1.0);
+    vec4 position_2d = projection_matrix * position_cs;
+    position_2d.xyz = position_2d.xyz / position_2d.w;
+    position_2d.w = 1.f;
     vec2 wh = 2 * hfov_focal.xy * hfov_focal.z;
 
-    float limx = 1.3 * hfov_focal.x;
-    float limy = 1.3 * hfov_focal.y;
-
-    float txtz = cam.x / cam.z;
-    float tytz = cam.y / cam.z;
-
-    // Clamped versions of txtz and tytz 
-    float tx = min(limx, max(-limx, txtz)) * cam.z;
-    float ty = min(limy, max(-limy, tytz)) * cam.z; 
-
-
-    if (any(greaterThan(abs(pos2d.xyz), vec3(1.3)))) {
-        gl_Position = vec4(-200, -200, -200, 1);
+    // Near-plane 0.1f, far-plane 200f
+    // TODO: Reject gaussians with position_ws close to the near or far planes
+    // float near_threshold = 0.15f; // Slightly beyond near plane
+    // float far_threshold = 195.5f;  // Slightly before far plane
+    // 
+    // if (-position_cs.z < near_threshold || -position_cs.z > far_threshold) {
+    //     gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
+    //     return;
+    // }
+    // if (all(lessThan(abs(position_2d.xyz), vec3(0.1)))) {
+    //     gl_Position = vec4(0, 0, 0, 0);
+    //     return;	
+    // }
+    if (all(greaterThan(abs(position_2d.xyz), vec3(1.3)))) {
+		gl_Position = vec4(0, 0, 0, 0);
         return;	
     }
 
-    mat3 J = mat3(
-      hfov_focal.z / cam.z, 0., -(hfov_focal.z * tx) / (cam.z * cam.z),
-      0., hfov_focal.z / cam.z, -(hfov_focal.z * ty) / (cam.z * cam.z),
-      0., 0., 0.
-    );
-                
-                
-    mat3 T = transpose(mat3(view_matrix)) * J;
 
-    mat3 cov2d = transpose(T) * transpose(cov3d) * T;
-
-    cov2d[0][0] += 0.3f;
-    cov2d[1][1] += 0.3f; 
-
-    float det = cov2d[0][0] * cov2d[1][1] - cov2d[0][1] * cov2d[1][0];
-    if (det == 0.0f)
-        gl_Position = vec4(0.f, 0.f, 0.f, 0.f);
-
+    vec3 cov2d = cov2d(position_cs, hfov_focal.z, hfov_focal.z, hfov_focal.x, hfov_focal.y, cov3d, view_matrix);
+	float det = (cov2d.x * cov2d.z - cov2d.y * cov2d.y);
+    // Gaussian is not visible from this view.
+	if (det == 0.0f) {
+		gl_Position = vec4(0.f, 0.f, 0.f, 0.f);
+        return;
+    }
+    
     float det_inv = 1.f / det;
-    conic = vec3(cov2d[1][1] * det_inv, -cov2d[0][1] * det_inv, cov2d[0][0] * det_inv);
+	conic = vec3(cov2d.z * det_inv, -cov2d.y * det_inv, cov2d.x * det_inv);
+    
+    // Size of quad in screen space. Multiplying by 3 means 99% of the Gaussian is covered by the quad.
+    vec2 quad_ss = vec2(3.0f * sqrt(cov2d.x), 3.0f * sqrt(cov2d.z));
+    // Size of quad in ndc
+    vec2 quad_ndc = quad_ss / wh * 2;
 
+    position_2d.xy = position_2d.xy + quadVertex * quad_ndc;
 
-    // Project quad into screen space
-    vec2 quadwh_scr = vec2(3.f * sqrt(cov2d[0][0]), 3.f * sqrt(cov2d[1][1]));
-
-    // Convert screenspace quad to NDC
-    vec2 quadwh_ndc = quadwh_scr / wh * 2;
-
-
-    // Update gaussian's position w.r.t the quad in NDC
-    pos2d.xy = pos2d.xy + quadVertex * quadwh_ndc;
-
-    // Calculate where this quad lies in pixel coordinates 
-    coordxy = quadVertex * quadwh_scr;
-
-    // Set position
-    gl_Position = pos2d;
+    gl_Position = position_2d;
 
     // Send values to fragment shader 
     frag_color = color;
     frag_alpha = alpha;
-
-
-
-
-    // vec2 scaled_quad_vertex = quadVertex * scale.xy * scale_multipler;
-    // // vec2 rotated_quad_vertex = rotMat * scaled_quad_vertex;
-
-    // // vec2 rotated_quad_vertex = rotMat * quadVertex;
-    // // vec2 transformed_quad_vertex = rotated_quad_vertex * scale.xy * scale_multipler;
-
-    // // Transform the Gaussian center position to clip space
-    // vec4 clip_center = VP * vec4(position_ws, 1.0);
-    // 
-    // float perspectiveScale = 1.0 / clip_center.w;
-    // 
-    // // Offset the vertex position in screen space
-    // vec4 clip_pos = clip_center;
-    // clip_pos.xy += scaled_quad_vertex;// * perspectiveScale;
-    // //clip_pos.xy += rotated_quad_vertex;// * perspectiveScale;
-    // //clip_pos.xy += transformed_quad_vertex;
-    // 
-    // gl_Position = clip_pos;
-    // 
-    // frag_color = color;
-    // frag_alpha = alpha;
+    // Pixel coordinates
+    coordxy = quadVertex * quad_ss;
 }

@@ -116,7 +116,6 @@ static float sigmoid(float opacity) {
 
 // Baed on https://github.com/graphdeco-inria/diff-gaussian-rasterization/blob/main/cuda_rasterizer/forward.cu
 // Zero degre spherical harmonics
-
 const float C0 = 0.28209479177387814f;
 
 glm::vec3 zero_deg_sh(glm::vec3 color) {
@@ -150,8 +149,11 @@ GaussianSplat gaussian_splat_from_file(std::string filename)
     return splat;
 }
 
+
 GaussianSplat gaussian_splat_from_ply_file(std::string filename)
 {
+    bool strange_format = false; // Some .ply files have scale_2 after all the rots
+
     GaussianSplat splat;
     splat.filename = std::filesystem::path(filename).filename().string();
     splat.had_error = false;
@@ -223,6 +225,9 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
                 ss << "Warning: Expected property " << property_count << " to have name "
                    << expected_property_name << " but got " << property_name;
                 splat.warning_and_error_messages.push_back(ss.str());
+                if (property_count == 57 && property_name == "rot_0") {
+                    strange_format = true;
+                }
             }
             property_count++;
         } 
@@ -242,7 +247,7 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
 
     splat.count = vertices;
     splat.ws_positions.reserve(vertices);
-    splat.normals.reserve(vertices);
+    // splat.normals.reserve(vertices);
     splat.colors.reserve(vertices);
     splat.shs.reserve(vertices);
     splat.opacities.reserve(vertices);
@@ -266,7 +271,7 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
          * Seems as though it stored in a left-handed system?
          */
         splat.ws_positions.push_back(glm::vec3(-data[0], -data[1], data[2]));
-        splat.normals.push_back(glm::vec3(data[3], data[4], data[5]));
+        // splat.normals.push_back(glm::vec3(data[3], data[4], data[5]));
         splat.colors.push_back(zero_deg_sh(glm::vec3(data[6], data[7], data[8])));
 
         SphericalHarmonics sh;
@@ -275,8 +280,13 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
         }
         splat.shs.push_back(sh);
         splat.opacities.push_back(sigmoid(data[54]));
-        splat.scales.push_back(glm::exp(glm::vec3(data[55], data[56], data[57])));
-        splat.rotations.push_back(normalize_quaternion(glm::vec4(data[58], data[59], data[60], data[61])));
+        if (!strange_format) {
+            splat.scales.push_back(glm::exp(glm::vec3(data[55], data[56], data[57])));
+            splat.rotations.push_back(normalize_quaternion(glm::vec4(data[58], data[59], data[60], data[61])));
+        } else {
+            splat.scales.push_back(glm::exp(glm::vec3(data[55], data[56], data[61])));
+            splat.rotations.push_back(normalize_quaternion(glm::vec4(data[57], data[58], data[59], data[60])));
+        }
     }
 
     file.close();

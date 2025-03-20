@@ -260,7 +260,7 @@ void init_game(GLFWwindow* window, ProgramState state)
     SceneNode *triNode = createSceneNode(GEOMETRY);
     Mesh tri = quadrilateral(glm::vec3(50));
     unsigned int triVAO = generateBuffer(tri);
-    triNode->position = glm::vec3(10.0, 0.0, -80.0);
+    triNode->position = glm::vec3(10.0, 0.0, -40.0);
     triNode->vertexArrayObjectID  = triVAO;
     triNode->VAOIndexCount        = tri.indices.size();
     rootNode->children.push_back(triNode);
@@ -465,15 +465,13 @@ void render_frame(GLFWwindow* window, ProgramState *state)
     //glUniform1f(shader_gaussian->getUniformFromName("scale_multipler"), state->scale_multiplier);
     glUniform1f(1, state->scale_multiplier);
 
-
     // Camera params used to calculate the Jacobian from view space to screen space
     float htany = tan(glm::radians(field_of_view) / 2);
-    float htanx = htany / float(windowHeight) * float(windowWidth);
+    float htanx = htany * aspect_ratio;
+    // Distance to the focal plane based on the vertical fov
     float focal_z = float(windowHeight) / (2 * htany);
     glm::vec3 focal_fov = glm::vec3(htanx, htany, focal_z);
     glUniform3fv(4, 1, glm::value_ptr(focal_fov));
-
-
 
     render_gaussians(state->render_as_point_cloud);
 }
