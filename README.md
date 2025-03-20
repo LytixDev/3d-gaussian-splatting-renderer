@@ -1,4 +1,8 @@
 # 3d Gaussian Splatting Renderer 
+
+![renderer](pic2.png)
+
+
 Final project for the course TDT4230 - Graphics and Visualization.
 
 Project extends the base code provided, see `https://github.com/bartvbl/TDT4230-Assignment-1.git`.
