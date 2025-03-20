@@ -35,7 +35,7 @@ Gloom::Shader* shader_gaussian;
 Gloom::Shader* shader_point_cloud;
 
 // Projection matrix variables
-float field_of_view = glm::radians(80.0f);
+float field_of_view = glm::radians(40.0f);
 float near_clipping_plane = 0.1f;
 float far_clipping_plane = 200.0f;
 
@@ -443,13 +443,12 @@ void render_frame(GLFWwindow* window, ProgramState *state)
     glUniform1f(1, state->scale_multiplier);
 
     // Camera params used to calculate the Jacobian from view space to screen space
-    float htany = tan(field_of_view / 2);
-    float htanx = htany / float(state->windowHeight) * float(state->windowHeight);
-    // Distance to the focal plane based on the vertical fov
-    float focal_z = float(state->windowHeight) / (2 * htany);
-    glm::vec3 focal_fov = glm::vec3(htanx, htany, focal_z);
-    glUniform3fv(4, 1, glm::value_ptr(focal_fov));
-
+    // float htany = tan(field_of_view / 2.0);
+    // float htanx = htany / float(state->windowHeight) * float(state->windowHeight);
+    // // Distance to the focal plane based on the vertical fov
+    // float focal_z = float(state->windowHeight) / (2 * htany);
+    // glm::vec3 focal_fov = glm::vec3(htanx, htany, focal_z);
+    // glUniform3fv(4, 1, glm::value_ptr(focal_fov));
 
     glUniform1i(5, state->draw_mode);
 
