@@ -34,9 +34,15 @@ Gloom::Shader* shader3D;
 Gloom::Shader* shader_gaussian;
 Gloom::Shader* shader_point_cloud;
 
+// Projection matrix variables
+float field_of_view = 80.0f;
+float aspect_ratio = float(windowWidth) / float(windowHeight);
+float near_clipping_plane = 0.1f;
+float far_clipping_plane = 200.0f;
+
 GaussianSplat splat;
 
-GLuint vao, vbo, ebo, positionVBO, colorVBO, scaleVBO, alphaVBO;
+GLuint vao, vbo, ebo, positionVBO, colorVBO, scaleVBO, alphaVBO, rotationVBO;
 GLuint instancedVAO;
 
 
@@ -64,14 +70,20 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
 void setup_quad() 
 {
+    //float quad_vertices[] = {
+    //    -1.0f, 1.0f,
+    //    1.0f, 1.0f,
+    //    1.0f, -1.0f,
+    //    -1.0f, -1.0f
+    //};
+
     float quad_vertices[] = {
-        // positions  // texture coords
-        -0.5f,  0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.0f, 0.0f,
-         0.5f, -0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f,  1.0f, 1.0f
+        -1.0f, 1.0f,
+        -1.0f, -1.0f,
+        1.0f, -1.0f,
+        1.0f, 1.0f
     };
-    
+
     int quad_indices[] = {
         0, 1, 2,
         0, 2, 3
@@ -93,11 +105,11 @@ void setup_quad()
     
     // Setup vertex attributes
     // Position attribute
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
+    //glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    //glEnableVertexAttribArray(0);
     // Texture coordinate attribute
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
+    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    //glEnableVertexAttribArray(1);
 }
 
 void setup_gaussians() 
@@ -115,10 +127,12 @@ void setup_gaussians()
     
     // NOTE: Clean up this
     // Setup quad vertex attributes
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    //glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
+
+    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    //glEnableVertexAttribArray(1);
     
     // Position buffer setup
     glGenBuffers(1, &positionVBO);
@@ -163,6 +177,17 @@ void setup_gaussians()
     glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(float), (void*)0);
     glEnableVertexAttribArray(5);
     glVertexAttribDivisor(5, 1); // Tell OpenGL this is an instanced attribute
+    
+    // Rotation buffer setup
+    glGenBuffers(1, &rotationVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, rotationVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 splat.rotations.size() * sizeof(float),
+                 splat.rotations.data(),
+                 GL_STATIC_DRAW);
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(float), (void*)0);
+    glEnableVertexAttribArray(5);
+    glVertexAttribDivisor(6, 1); // Tell OpenGL this is an instanced attribute
 }
 
 void free_gaussians() 
@@ -175,18 +200,19 @@ void free_gaussians()
     glDeleteBuffers(1, &colorVBO);
     glDeleteBuffers(1, &scaleVBO);
     glDeleteBuffers(1, &alphaVBO);
+    glDeleteBuffers(1, &rotationVBO);
 }
 
 void render_gaussians(bool render_as_point_cloud) 
 {
     // Calculate view projection matrix
-    glm::mat4 projection = glm::perspective(glm::radians(80.0f), 
-                                          float(windowWidth) / float(windowHeight), 
-                                          0.1f, 350.f);
+    glm::mat4 projection = glm::perspective(glm::radians(field_of_view), aspect_ratio, near_clipping_plane, far_clipping_plane);
     glm::mat4 VP = projection * camera->getViewMatrix();
     
     // Set VP matrix uniform
     glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(VP));
+    glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(camera->getViewMatrix()));
+    glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(projection));
     
     // Enable blending for transparency
     // glEnable(GL_BLEND);
@@ -234,7 +260,7 @@ void init_game(GLFWwindow* window, ProgramState state)
     SceneNode *triNode = createSceneNode(GEOMETRY);
     Mesh tri = quadrilateral(glm::vec3(50));
     unsigned int triVAO = generateBuffer(tri);
-    triNode->position = glm::vec3(10.0, 0.0, -80.0);
+    triNode->position = glm::vec3(10.0, 0.0, -40.0);
     triNode->vertexArrayObjectID  = triVAO;
     triNode->VAOIndexCount        = tri.indices.size();
     rootNode->children.push_back(triNode);
@@ -247,6 +273,7 @@ void init_game(GLFWwindow* window, ProgramState state)
 void update_frame(GLFWwindow* window, ProgramState *state)
 {
     if (state->change_model) {
+        free_gaussians();
         state->change_model = false;
         splat = state->loaded_model;
         //std::cout << "Changing model!" << std::endl;
@@ -260,7 +287,7 @@ void update_frame(GLFWwindow* window, ProgramState *state)
     
     camera->updateCamera(deltaTime);
 
-    glm::mat4 projection = glm::perspective(glm::radians(80.0f), float(windowWidth) / float(windowHeight), 0.1f, 350.f);
+    glm::mat4 projection = glm::perspective(glm::radians(field_of_view), aspect_ratio, near_clipping_plane, far_clipping_plane);
     glm::mat4 VP = projection * camera->getViewMatrix();
 
     glm::mat4 identity = glm::mat4(1);
@@ -326,8 +353,102 @@ void renderNode3D(SceneNode* node) {
     }
 }
 
+glm::mat4 lastViewMatrix;
+
+typedef struct {
+    size_t index;
+    float depth;
+} GaussianDepth;
+
+bool depth_sort_and_update_buffers() 
+{
+    // Only perform the depth sort if camera has moved
+    glm::mat4 currentViewMatrix = camera->getViewMatrix();
+    bool viewMatrixChanged = true;
+    viewMatrixChanged = false;
+    for (int i = 0; i < 4 && !viewMatrixChanged; i++) {
+        for (int j = 0; j < 4 && !viewMatrixChanged; j++) {
+            // Use a small epsilon for floating point comparison
+            if (std::abs(currentViewMatrix[i][j] - lastViewMatrix[i][j]) > 0.0001f) {
+                viewMatrixChanged = true;
+            }
+        }
+    }
+    if (!viewMatrixChanged) {
+        return false;
+    }
+
+    lastViewMatrix = currentViewMatrix;
+
+    std::vector<GaussianDepth> depthSortData(splat.ws_positions.size());
+    glm::mat4 viewMatrix = camera->getViewMatrix();
+    
+    // ~300 ms
+    // Calculate view-space depth for each Gaussian
+    for (size_t i = 0; i < splat.ws_positions.size(); i++) {
+        glm::vec4 viewPos = viewMatrix * glm::vec4(splat.ws_positions[i], 1.0f);
+        depthSortData[i].index = i;
+        depthSortData[i].depth = -viewPos.z;  // Negative because view space goes into  the negative Z
+    }
+    
+    // ~600 ms
+    // TODO: Count sort is faster, and then consider sorting on the GPU
+    std::sort(depthSortData.begin(), depthSortData.end(),
+        [](const GaussianDepth& a, const GaussianDepth& b) {
+            return a.depth > b.depth;
+        });
+
+    
+    // ~500 ms
+    // Create temporary vectors for sorted data
+    std::vector<glm::vec3> sorted_positions(splat.ws_positions.size());
+    std::vector<glm::vec3> sorted_colors(splat.colors.size());
+    std::vector<glm::vec3> sorted_scales(splat.scales.size());
+    std::vector<float> sorted_opacities(splat.opacities.size());
+    std::vector<glm::vec4> sorted_rotations(splat.rotations.size());
+    
+    // Reorder data based on sorted depths
+    for (size_t i = 0; i < depthSortData.size(); i++) {
+        size_t idx = depthSortData[i].index;
+        sorted_positions[i] = splat.ws_positions[idx];
+        sorted_colors[i] = splat.colors[idx];
+        sorted_scales[i] = splat.scales[idx];
+        sorted_opacities[i] = splat.opacities[idx];
+        sorted_rotations[i] = splat.rotations[idx];
+    }
+    
+    // TODO: Is this necessary? Can we do some trickery to make this fast?
+    // Update buffers
+    glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
+    glBufferData(GL_ARRAY_BUFFER, sorted_positions.size() * sizeof(glm::vec3),
+                 sorted_positions.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+    glBufferData(GL_ARRAY_BUFFER, sorted_colors.size() * sizeof(glm::vec3),
+                 sorted_colors.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, scaleVBO);
+    glBufferData(GL_ARRAY_BUFFER, sorted_scales.size() * sizeof(glm::vec3),
+                 sorted_scales.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, alphaVBO);
+    glBufferData(GL_ARRAY_BUFFER, sorted_opacities.size() * sizeof(float),
+                 sorted_opacities.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, rotationVBO);
+    glBufferData(GL_ARRAY_BUFFER, sorted_rotations.size() * sizeof(float),
+                 sorted_rotations.data(), GL_STATIC_DRAW);
+
+    return true;
+}
+
 void render_frame(GLFWwindow* window, ProgramState *state) 
 {
+    if (state->depth_sort) {
+        auto start_time = std::chrono::high_resolution_clock::now();
+        if (depth_sort_and_update_buffers()) {
+            auto end_time = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+            state->depth_sort_time_in_ms = duration;
+        }
+    }
+
     int windowWidth, windowHeight;
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
     glViewport(0, 0, windowWidth, windowHeight);
@@ -343,6 +464,14 @@ void render_frame(GLFWwindow* window, ProgramState *state)
     }
     //glUniform1f(shader_gaussian->getUniformFromName("scale_multipler"), state->scale_multiplier);
     glUniform1f(1, state->scale_multiplier);
+
+    // Camera params used to calculate the Jacobian from view space to screen space
+    float htany = tan(glm::radians(field_of_view) / 2);
+    float htanx = htany * aspect_ratio;
+    // Distance to the focal plane based on the vertical fov
+    float focal_z = float(windowHeight) / (2 * htany);
+    glm::vec3 focal_fov = glm::vec3(htanx, htany, focal_z);
+    glUniform3fv(4, 1, glm::value_ptr(focal_fov));
 
     render_gaussians(state->render_as_point_cloud);
 }

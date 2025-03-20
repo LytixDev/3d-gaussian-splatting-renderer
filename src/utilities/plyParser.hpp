@@ -42,9 +42,11 @@ typedef struct gaussian_splat_t {
     std::vector<glm::vec3> normals; // nx, ny, nz
     std::vector<glm::vec3> colors; // f_dc_0, f_dc_1, f_dc_2
     std::vector<SphericalHarmonics> shs; // f_rest_0 .. f_rest_44
+    // Between 0 and 1, mapped by the sigmoid function
     std::vector<float> opacities; // opacity
+    // Raised to e
     std::vector<glm::vec3> scales; // scale_0, scale_1, scale_2
-    /* Quaternion */
+    /* Quaternion with magnitude of 1 */
     std::vector<glm::vec4> rotations; // rot_0 .. rot_3
 } GaussianSplat;
 

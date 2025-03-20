@@ -103,6 +103,26 @@ static std::vector<std::string> next_line_tokens(std::ifstream &file) {
 }
 
 
+static glm::vec4 normalize_quaternion(glm::vec4 r) {
+	float ss = r.x * r.x + r.y * r.y + r.z * r.z + r.w * r.w;
+	float norm = std::sqrt(ss);
+	return glm::vec4(r.x / norm, r.y / norm, r.z / norm, r.w / norm);
+}
+
+
+static float sigmoid(float opacity) {
+	return 1.0 / (1.0 + std::exp(-opacity));
+}
+
+// Baed on https://github.com/graphdeco-inria/diff-gaussian-rasterization/blob/main/cuda_rasterizer/forward.cu
+// Zero degre spherical harmonics
+const float C0 = 0.28209479177387814f;
+
+glm::vec3 zero_deg_sh(glm::vec3 color) {
+	return 0.5f + C0 * color;
+}
+
+
 GaussianSplat gaussian_splat_from_file(std::string filename)
 {
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -129,8 +149,11 @@ GaussianSplat gaussian_splat_from_file(std::string filename)
     return splat;
 }
 
+
 GaussianSplat gaussian_splat_from_ply_file(std::string filename)
 {
+    bool strange_format = false; // Some .ply files have scale_2 after all the rots
+
     GaussianSplat splat;
     splat.filename = std::filesystem::path(filename).filename().string();
     splat.had_error = false;
@@ -202,6 +225,9 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
                 ss << "Warning: Expected property " << property_count << " to have name "
                    << expected_property_name << " but got " << property_name;
                 splat.warning_and_error_messages.push_back(ss.str());
+                if (property_count == 57 && property_name == "rot_0") {
+                    strange_format = true;
+                }
             }
             property_count++;
         } 
@@ -221,7 +247,7 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
 
     splat.count = vertices;
     splat.ws_positions.reserve(vertices);
-    splat.normals.reserve(vertices);
+    // splat.normals.reserve(vertices);
     splat.colors.reserve(vertices);
     splat.shs.reserve(vertices);
     splat.opacities.reserve(vertices);
@@ -245,18 +271,22 @@ GaussianSplat gaussian_splat_from_ply_file(std::string filename)
          * Seems as though it stored in a left-handed system?
          */
         splat.ws_positions.push_back(glm::vec3(-data[0], -data[1], data[2]));
-        splat.normals.push_back(glm::vec3(data[3], data[4], data[5]));
-        splat.colors.push_back(glm::vec3(data[6], data[7], data[8]));
+        // splat.normals.push_back(glm::vec3(data[3], data[4], data[5]));
+        splat.colors.push_back(zero_deg_sh(glm::vec3(data[6], data[7], data[8])));
 
         SphericalHarmonics sh;
         for (int j = 0; j < SPHERICAL_HARMONICS_COEFFS_COUNT; j++) {
             sh.coeffs[j] = data[9 + j];
         }
         splat.shs.push_back(sh);
-
-        splat.opacities.push_back(data[54]);
-        splat.scales.push_back(glm::vec3(data[55], data[56], data[57]));
-        splat.rotations.push_back(glm::vec4(data[58], data[59], data[60], data[61]));
+        splat.opacities.push_back(sigmoid(data[54]));
+        if (!strange_format) {
+            splat.scales.push_back(glm::exp(glm::vec3(data[55], data[56], data[57])));
+            splat.rotations.push_back(normalize_quaternion(glm::vec4(data[58], data[59], data[60], data[61])));
+        } else {
+            splat.scales.push_back(glm::exp(glm::vec3(data[55], data[56], data[61])));
+            splat.rotations.push_back(normalize_quaternion(glm::vec4(data[57], data[58], data[59], data[60])));
+        }
     }
 
     file.close();
@@ -292,7 +322,7 @@ GaussianSplat gaussian_splat_from_splat_file(std::string filename)
     // Each vertex in the .splat format consists of:
     // - 3 floats for position
     // - 3 floats for scales
-    // - 4 bytes for colors
+    // - 4 bytes for colors (final is opacity)
     // - 4 bytes for rotation
     const size_t bytes_per_vertex = 12 + 12 + 4 + 4;
     
@@ -326,56 +356,34 @@ GaussianSplat gaussian_splat_from_splat_file(std::string filename)
         // Read scales
         file.read(reinterpret_cast<char*>(scales), sizeof(float) * 3);
         splat.scales.push_back(glm::vec3(scales[0], scales[1], scales[2]));
+        //splat.scales.push_back(glm::vec3(scales[0], scales[1], 1e-06));
 
-        // Read color normalized between 0-1
-        // NOTE: May use a different color space?
+        // Read color. Normalize it between 0-1
         file.read(reinterpret_cast<char*>(color_data), sizeof(uint8_t) * 4);
         splat.colors.push_back(glm::vec3(
             color_data[0] / 255.0f,
             color_data[1] / 255.0f,
             color_data[2] / 255.0f
         ));
-        // Alpha / opacity.
-        // NOTE: Already calculated :: 1 / (1 + e^(-opacity))
-        splat.opacities.push_back(color_data[3] / 255.0f);
+        // Opacity. Already calculated :: 1 / (1 + e^(-opacity)). Normalize it as well.
+        splat.opacities.push_back(float(color_data[3]) / 255.0f);
 
-        // Read rotation (4 uint8_t, denormalized from 0-255 to -1 to 1)
+        // Read rotation. Normalize each component between -1 to 1.
         file.read(reinterpret_cast<char*>(rotation_data), sizeof(uint8_t) * 4);
         glm::vec4 rot(
-            rotation_data[0],
-            rotation_data[1],
-            rotation_data[2],
-            rotation_data[3]
-            //(rotation_data[0] - 128.0f) / 128.0f,
-            //(rotation_data[1] - 128.0f) / 128.0f,
-            //(rotation_data[2] - 128.0f) / 128.0f,
-            //(rotation_data[3] - 128.0f) / 128.0f
+            //rotation_data[0],
+            //rotation_data[1],
+            //rotation_data[2],
+            //rotation_data[3]
+            float(rotation_data[0]) - 128.0f / 128.0f,
+            float(rotation_data[1]) - 128.0f / 128.0f,
+            float(rotation_data[2]) - 128.0f / 128.0f,
+            float(rotation_data[3]) - 128.0f / 128.0f
         );
         
-        // NOTE: Should already be normalized.
-        // Normalize the quaternion
-        //float length = glm::length(rot);
-        //if (length > 0.0f) {
-        //    rot /= length;
-        //}
+        //splat.rotations.push_back(normalize_quaternion(rot));
         splat.rotations.push_back(rot);
-
-        // NOTE: no idea
-        // Add dummy normals
-        // splat.normals.push_back(glm::vec3(0.0f, 0.0f, 1.0f));
-        // Add dummy spherical harmonics
-        // SphericalHarmonics sh;
-        // for (int j = 0; j < SPHERICAL_HARMONICS_COEFFS_COUNT; j++) {
-        //     sh.coeffs[j] = 0.0f;
-        // }
-
-        // NOTE: Already baked into the color component, should not be needed.
-        // NOTE: Reversed SH_C0 from reference code, no idea if works
-        //const float SH_C0 = 0.28209479177387814f;
-        //sh.coeffs[0] = (splat.colors.back().r - 0.5f) / SH_C0;
-        //sh.coeffs[1] = (splat.colors.back().g - 0.5f) / SH_C0;
-        //sh.coeffs[2] = (splat.colors.back().b - 0.5f) / SH_C0;
-        //splat.shs.push_back(sh);
+        //splat.rotations.push_back(glm::vec4(0));
 
         if (!file) {
             std::stringstream ss;
@@ -408,6 +416,10 @@ void gaussian_splat_print(GaussianSplat &splat)
     
     // for (const auto& color : splat.colors) {
     //     std::cout << "Color: (" << color.r << ", " << color.g << ", " << color.b << ")\n";
+    // }
+    
+    // for (const auto& scales : splat.scales) {
+    //     std::cout << "Scales: (" << scales.x << ", " << scales.y << ", " << scales.z << ")\n";
     // }
 }
 
