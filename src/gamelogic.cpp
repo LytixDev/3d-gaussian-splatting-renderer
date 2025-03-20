@@ -69,13 +69,6 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
 void setup_quad() 
 {
-    //float quad_vertices[] = {
-    //    -1.0f, 1.0f,
-    //    1.0f, 1.0f,
-    //    1.0f, -1.0f,
-    //    -1.0f, -1.0f
-    //};
-
     float quad_vertices[] = {
         -1.0f, 1.0f,
         -1.0f, -1.0f,
@@ -201,10 +194,6 @@ void render_gaussians(ProgramState *state, bool render_as_point_cloud)
     glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(VP));
     glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(camera->getViewMatrix()));
     glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(projection));
-    
-    // Enable blending for transparency
-    // glEnable(GL_BLEND);
-    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
     // Bind the instanced VAO
     glBindVertexArray(instancedVAO);

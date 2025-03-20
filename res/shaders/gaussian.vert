@@ -6,7 +6,7 @@ layout (location = 2) in vec3 position_ws;
 layout (location = 3) in vec3 color;
 layout (location = 4) in vec3 scale;
 layout (location = 5) in float alpha;
-layout (location = 4) in vec4 rotation;
+layout (location = 6) in vec4 rotation;
 
 uniform layout(location = 0) mat4 VP;
 uniform layout(location = 1) float scale_multipler;
@@ -22,40 +22,35 @@ out vec3 conic;
 out vec2 coordxy;
 flat out int frag_draw_mode;
 
-mat3 cov3d(vec4 r, vec3 s) {
-    // NOTE: Could these be constructed ahead of time?
-    // Rotation matrix from quaternion
-    mat3 rotation_matrix = mat3(
-        1.0 - 2.0 * (r.z * r.z + r.w * r.w),
-        2.0 * (r.y * r.z + r.x * r.w),
-        2.0 * (r.y * r.w - r.x * r.z),
-        
-        2.0 * (r.y * r.z - r.x * r.w),
-        1.0 - 2.0 * (r.y * r.y + r.w * r.w),
-        2.0 * (r.z * r.w + r.x * r.y),
-        
-        2.0 * (r.y * r.w + r.x * r.z),
-        2.0 * (r.z * r.w - r.x * r.y),
-        1.0 - 2.0 * (r.y * r.y + r.z * r.z)
+
+mat3 compute_cov3d(vec4 R, vec3 s) {
+    //mat3 scale = mat3(
+    //    scale_multipler * s.x, 0.0, 0.0,
+    //    0.0, scale_multipler * s.y, 0.0,
+    //    0.0, 0.0, scale_multipler * s.z
+    //);
+    mat3 scale = mat3(
+        s.x, 0.0, 0.0,
+        0.0, s.y, 0.0,
+        0.0, 0.0, s.z
     );
-    
-    mat3 scale_matrix = mat3(
-        scale_multipler * s.x, 0.0, 0.0,
-        0.0, scale_multipler * s.y, 0.0,
-        0.0, 0.0, scale_multipler * s.z
-    );
-    
-    // mat3 scale_matrix = mat3(
-    //     s.x, 0.0, 0.0,
-    //     0.0, s.y, 0.0,
-    //     0.0, 0.0, s.z
-    // );
-    
-    mat3 transformation = scale_matrix * rotation_matrix;
-    
-    // Final 3d covariance matrix
-    return transpose(transformation) * transformation;
+
+
+	float r = R.x;
+	float x = R.y;
+	float y = R.z;
+	float z = R.w;
+
+    mat3 rotation = mat3(
+		1.f - 2.f * (y * y + z * z), 2.f * (x * y - r * z), 2.f * (x * z + r * y),
+		2.f * (x * y + r * z), 1.f - 2.f * (x * x + z * z), 2.f * (y * z - r * x),
+		2.f * (x * z - r * y), 2.f * (y * z + r * x), 1.f - 2.f * (x * x + y * y)
+	);
+
+    mat3 M = scale * rotation;
+    return transpose(M) * M;
 }
+
 
 // Based on: https://github.com/graphdeco-inria/diff-gaussian-rasterization/blob/main/cuda_rasterizer/forward.cu
 vec3 cov2d(vec4 mean, float focal_x, float focal_y, float tan_fovx, float tan_fovy, mat3 cov3D, mat4 viewmatrix)
@@ -99,22 +94,17 @@ void main() {
     //    return;
     //}
 
-    mat3 cov3d = cov3d(rotation, scale);
+    mat3 cov3d = compute_cov3d(rotation, scale);
+    //if (scale_multipler == 1.f) {
+    //    cov3d = compute_cov3d(vec4(0.f, 0.f, 0.f, 0.f), scale);
+    //}
 
     // To camera space
     vec4 position_cs = view_matrix * vec4(position_ws, 1.0);
-
-
     vec4 position_2d = projection_matrix * position_cs;
     position_2d.xyz = position_2d.xyz / position_2d.w;
-    position_2d.w = 1.f;
+    position_2d.w = 1.0f;
     vec2 wh = 2 * hfov_focal.xy * hfov_focal.z;
-
-    if (all(greaterThan(abs(position_2d.xyz), vec3(1.3)))) {
-		gl_Position = vec4(0, 0, 0, 0);
-        return;	
-    }
-
 
     vec3 cov2d = cov2d(position_cs, hfov_focal.z, hfov_focal.z, hfov_focal.x, hfov_focal.y, cov3d, view_matrix);
 	float det = (cov2d.x * cov2d.z - cov2d.y * cov2d.y);
@@ -124,7 +114,7 @@ void main() {
         return;
     }
     
-    float det_inv = 1.f / det;
+    float det_inv = 1.0f / det;
 	conic = vec3(cov2d.z * det_inv, -cov2d.y * det_inv, cov2d.x * det_inv);
 
     // Size of quad in screen space. Multiplying by 3 means 99% of the Gaussian is covered by the quad.
