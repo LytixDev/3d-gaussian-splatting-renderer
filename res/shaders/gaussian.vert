@@ -41,9 +41,11 @@ mat3 compute_cov3d(vec4 R, vec3 s) {
     // );
 
 
+    // We use a right-handed system ... this took wayyy to long
+    // https://stackoverflow.com/questions/4124041/is-opengl-coordinate-system-left-handed-or-right-handed
 	float r = R.x;
-	float x = R.y;
-	float y = R.z;
+	float x = -R.y;
+	float y = -R.z;
 	float z = R.w;
 
     mat3 rotation = mat3(

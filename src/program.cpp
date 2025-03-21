@@ -48,7 +48,7 @@ static void load_model(ProgramState *state, std::string model_path)
         };
 
         std::vector<glm::vec4> rotations = {
-            {1.0f, 0.0f, 0.0f, 0.0f},
+            {1.0f, 1.0f, 0.0f, 0.0f},
             {1.0f, 0.0f, 0.0f, 0.0f},
             {1.0f, 0.0f, 0.0f, 0.0f},
             {1.0f, 0.0f, 0.0f, 0.0f}
@@ -226,7 +226,8 @@ void run_program(GLFWwindow* window)
     // Test gaussians for debugging
     state.all_models.push_back("test");
     // Set default model
-    std::string default_model = "../res/father-day.ply";
+    // std::string default_model = "../res/father-day.ply";
+    std::string default_model = "test";
     auto it = std::find(state.all_models.begin(), state.all_models.end(), default_model);
 
     if (it != state.all_models.end()) {
