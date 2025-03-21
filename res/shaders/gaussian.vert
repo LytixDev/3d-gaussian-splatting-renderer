@@ -14,6 +14,11 @@ uniform layout(location = 2) mat4 view_matrix;
 uniform layout(location = 3) mat4 projection_matrix;
 uniform layout(location = 4) vec3 hfov_focal;
 uniform layout(location = 5) int draw_mode;
+// Draw modes:
+//     Normal = 0
+//     Quad = 1
+//     Albedo = 2
+//     Depth = 3
 
 // To fragment shader
 out vec3 frag_color;
@@ -24,16 +29,16 @@ flat out int frag_draw_mode;
 
 
 mat3 compute_cov3d(vec4 R, vec3 s) {
-    //mat3 scale = mat3(
-    //    scale_multipler * s.x, 0.0, 0.0,
-    //    0.0, scale_multipler * s.y, 0.0,
-    //    0.0, 0.0, scale_multipler * s.z
-    //);
     mat3 scale = mat3(
-        s.x, 0.0, 0.0,
-        0.0, s.y, 0.0,
-        0.0, 0.0, s.z
+        scale_multipler * s.x, 0.0, 0.0,
+        0.0, scale_multipler * s.y, 0.0,
+        0.0, 0.0, scale_multipler * s.z
     );
+    // mat3 scale = mat3(
+    //     s.x, 0.0, 0.0,
+    //     0.0, s.y, 0.0,
+    //     0.0, 0.0, s.z
+    // );
 
 
 	float r = R.x;
@@ -86,6 +91,8 @@ vec3 cov2d(vec4 mean, float focal_x, float focal_y, float tan_fovx, float tan_fo
     return vec3(cov[0][0], cov[0][1], cov[1][1]);
 }
 
+// For some unkniwn reason passing hvof_focal as a uniform doesn't work properly ...
+// Even when it has the exact same values ...
 vec3 default_hvof_focal() {
     float htany = tan(radians(40.0) / 2.0);
     float htanx = htany / (1080.0) * (1920.0);
@@ -143,7 +150,12 @@ void main() {
     gl_Position = position_2d;
 
     // Send values to fragment shader 
-    frag_color = color;
+	if (draw_mode == 3) {
+        float depth_reciprocal = 1 / -position_cs.z;
+		frag_color = vec3(depth_reciprocal, depth_reciprocal, depth_reciprocal);
+	} else {
+        frag_color = color;
+    }
     frag_alpha = alpha;
     // Pixel coordinates
     coordxy = quadVertex * quad_ss;

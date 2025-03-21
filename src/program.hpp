@@ -16,6 +16,7 @@ typedef enum {
     Quad,
     Albedo,
     Depth,
+    Point_Cloud,
 } DrawMode;
 
 typedef struct program_state_t {
@@ -28,7 +29,6 @@ typedef struct program_state_t {
     bool is_loading_model = false;
     
     float scale_multiplier = 1.0f;
-    bool render_as_point_cloud = false;
     bool depth_sort = false;
     float depth_sort_time_in_ms = 0.0f;
 

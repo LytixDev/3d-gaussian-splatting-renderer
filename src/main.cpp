@@ -18,6 +18,11 @@
 // A callback which allows GLFW to report errors whenever they occur
 static void glfwErrorCallback(int error, const char *description)
 {
+    // NOTE: After exiting, this spams "The GLFW library is not initialized (65537)"
+    //       No idea why.
+    if (error == 65537) {
+        return;
+    }
     fprintf(stderr, "GLFW returned an error:\n\t%s (%i)\n", description, error);
 }
 

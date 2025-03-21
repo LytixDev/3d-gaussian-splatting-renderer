@@ -434,7 +434,7 @@ void render_frame(GLFWwindow* window, ProgramState *state)
     glUniform3fv(shader3D->getUniformFromName("camera_position"), 1, glm::value_ptr(camera->getPosition()));
     renderNode3D(rootNode);
 
-    if (state->render_as_point_cloud) {
+    if (state->draw_mode == Point_Cloud) {
         shader_point_cloud->activate();
     } else {
         shader_gaussian->activate();
@@ -452,5 +452,5 @@ void render_frame(GLFWwindow* window, ProgramState *state)
 
     glUniform1i(5, state->draw_mode);
 
-    render_gaussians(state, state->render_as_point_cloud);
+    render_gaussians(state, state->draw_mode == Point_Cloud);
 }
