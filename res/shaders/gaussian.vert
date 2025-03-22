@@ -154,10 +154,10 @@ void main() {
     gl_Position = position_2d;
 
     // Send values to fragment shader 
-	if (draw_mode == 3) {
+    if (draw_mode == 3) {
         float depth_reciprocal = 1 / -position_cs.z;
-		frag_color = vec3(depth_reciprocal, depth_reciprocal, depth_reciprocal);
-	} else {
+        frag_color = vec3(depth_reciprocal, depth_reciprocal, depth_reciprocal);
+    } else {
         frag_color = color;
     }
     frag_alpha = alpha;
