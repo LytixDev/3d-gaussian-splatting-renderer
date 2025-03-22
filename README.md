@@ -2,6 +2,8 @@
 
 ![imageeee](showcase.png)
 
+![imageeee](showcase_2.png)
+
 
 Final project for the course TDT4230 - Graphics and Visualization.
 
