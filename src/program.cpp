@@ -239,16 +239,16 @@ void run_program(GLFWwindow* window)
         exit(1);
     }
 
-	init_game(window, state);
+    init_game(window, state);
 
     // Rendering Loop
     while (!glfwWindowShouldClose(window)) {
 	    // Clear colour and depth buffers
 	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
 
         update_frame(window, &state);
         render_frame(window, &state);
@@ -260,8 +260,8 @@ void run_program(GLFWwindow* window)
         handleKeyboardInput(window);
 
 		// Renders the ImGUI elements
-		ImGui::Render();
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         // Flip buffers
         glfwSwapBuffers(window);

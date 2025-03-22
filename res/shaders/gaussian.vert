@@ -43,15 +43,15 @@ mat3 compute_cov3d(vec4 R, vec3 s) {
 
     // We use a right-handed system ... this took wayyy to long
     // https://stackoverflow.com/questions/4124041/is-opengl-coordinate-system-left-handed-or-right-handed
-	float r = R.x;
-	float x = -R.y;
-	float y = -R.z;
-	float z = R.w;
+    float r = R.x;
+    float x = -R.y;
+    float y = -R.z;
+    float z = R.w;
 
     mat3 rotation = mat3(
-		1.f - 2.f * (y * y + z * z), 2.f * (x * y - r * z), 2.f * (x * z + r * y),
-		2.f * (x * y + r * z), 1.f - 2.f * (x * x + z * z), 2.f * (y * z - r * x),
-		2.f * (x * z - r * y), 2.f * (y * z + r * x), 1.f - 2.f * (x * x + y * y)
+        1.f - 2.f * (y * y + z * z), 2.f * (x * y - r * z), 2.f * (x * z + r * y),
+        2.f * (x * y + r * z), 1.f - 2.f * (x * x + z * z), 2.f * (y * z - r * x),
+        2.f * (x * z - r * y), 2.f * (y * z + r * x), 1.f - 2.f * (x * x + y * y)
 	);
 
     mat3 M = scale * rotation;
@@ -72,8 +72,8 @@ vec3 cov2d(vec4 mean, float focal_x, float focal_y, float tan_fovx, float tan_fo
 
     mat3 J = mat3(
         focal_x / t.z, 0.0f, -(focal_x * t.x) / (t.z * t.z),
-		0.0f, focal_y / t.z, -(focal_y * t.y) / (t.z * t.z),
-		0, 0, 0
+        0.0f, focal_y / t.z, -(focal_y * t.y) / (t.z * t.z),
+        0, 0, 0
     );
     mat3 W = transpose(mat3(viewmatrix));
     mat3 T = W * J;
@@ -107,7 +107,7 @@ void main() {
     // hfov = hfov_focal;
 
     // Frustum culling
-	//vec4 p_view = view_matrix * vec4(position_ws, 1);
+    //vec4 p_view = view_matrix * vec4(position_ws, 1);
     //if (p_view.z < -200.0f) {
     //    gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
     //    return;
@@ -126,22 +126,22 @@ void main() {
     vec2 wh = 2 * hfov.xy * hfov.z;
 
     vec3 cov2d = cov2d(position_cs, hfov.z, hfov.z, hfov.x, hfov.y, cov3d, view_matrix);
-	float det = (cov2d.x * cov2d.z - cov2d.y * cov2d.y);
+    float det = (cov2d.x * cov2d.z - cov2d.y * cov2d.y);
     // Gaussian is not visible from this view.
-	if (det == 0.0f) {
-		gl_Position = vec4(0.f, 0.f, 0.f, 0.f);
+    if (det == 0.0f) {
+        gl_Position = vec4(0.f, 0.f, 0.f, 0.f);
         return;
     }
     
     float det_inv = 1.0f / det;
-	conic = vec3(cov2d.z * det_inv, -cov2d.y * det_inv, cov2d.x * det_inv);
+    conic = vec3(cov2d.z * det_inv, -cov2d.y * det_inv, cov2d.x * det_inv);
 
     // Size of quad in screen space. Multiplying by 3 means 99% of the Gaussian is covered by the quad.
     vec2 quad_ss = vec2(3.0f * sqrt(cov2d.x), 3.0f * sqrt(cov2d.z));
     // If quad is huge, something has gone bad
     // if (abs(cov2d.x * cov2d.z) > 100000) {
-	// 	gl_Position = vec4(0.f, 0.f, 0.f, 0.f);
-    //     return;
+    //      gl_Position = vec4(0.f, 0.f, 0.f, 0.f);
+    //      return;
     // }
 
     // Size of quad in ndc
