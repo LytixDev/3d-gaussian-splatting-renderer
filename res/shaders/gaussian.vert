@@ -41,8 +41,10 @@ mat3 compute_cov3d(vec4 R, vec3 s) {
     // );
 
 
-    // We use a right-handed system ... this took wayyy to long
-    // https://stackoverflow.com/questions/4124041/is-opengl-coordinate-system-left-handed-or-right-handed
+    // Arghhh, this took way to long to figure out.
+    // I think it's due to a mismatch between my view matrix and the original papers view matrix
+    // It may also due to the fact in screen space we go from right handed to a left handed system: 
+    //  https://stackoverflow.com/questions/4124041/is-opengl-coordinate-system-left-handed-or-right-handed
     float r = R.x;
     float x = -R.y;
     float y = -R.z;

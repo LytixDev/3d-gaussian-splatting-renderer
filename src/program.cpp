@@ -182,7 +182,7 @@ static void imgui_draw(ProgramState *state)
         }
     }
 
-    ImGui::SliderFloat("Scale multipler", &state->scale_multiplier, -10.0, 10.0);
+    ImGui::SliderFloat("Scale multipler", &state->scale_multiplier, 0.1, 3.0);
     ImGui::Checkbox("Depth sort", &state->depth_sort);
 
     // Draw mode
@@ -226,8 +226,8 @@ void run_program(GLFWwindow* window)
     // Test gaussians for debugging
     state.all_models.push_back("test");
     // Set default model
-    // std::string default_model = "../res/father-day.ply";
-    std::string default_model = "test";
+    std::string default_model = "../res/father-day.ply";
+    // std::string default_model = "test";
     auto it = std::find(state.all_models.begin(), state.all_models.end(), default_model);
 
     if (it != state.all_models.end()) {
