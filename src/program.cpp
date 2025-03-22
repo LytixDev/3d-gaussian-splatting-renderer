@@ -38,60 +38,50 @@ static std::vector<std::string> list_ply_and_splat_files(const std::string& dire
 
 static void load_model(ProgramState *state, std::string model_path)
 {
-    GaussianSplat loaded_model = gaussian_splat_from_file(model_path);
+    GaussianSplat new_model;
+    if (model_path == "test") {
+        std::vector<glm::vec3> ws_positions = {
+            {0.0f, 0.0f, 0.0f},
+            {1.0f, 0.0f, 0.0f},
+            {0.0f, 1.0f, 0.0f},
+            {0.0f, 0.0f, 1.0f}
+        };
 
-    /* 
-    loaded_model.count = 4;
-    std::vector<glm::vec3> ws_positions = {
-        {0.0f, 0.0f, 0.0f},
-        {1.0f, 0.0f, 0.0f},
-        {0.0f, 1.0f, 0.0f},
-        {0.0f, 0.0f, 1.0f}
-    };
+        std::vector<glm::vec4> rotations = {
+            {1.0f, 1.0f, 0.0f, 0.0f},
+            {1.0f, 0.0f, 0.0f, 0.0f},
+            {1.0f, 0.0f, 0.0f, 0.0f},
+            {1.0f, 0.0f, 0.0f, 0.0f}
+        };
 
-    std::vector<glm::vec4> rotations = {
-        {1.0f, 0.0f, 0.0f, 0.0f},
-        {1.0f, 0.0f, 0.0f, 0.0f},
-        {1.0f, 0.0f, 0.0f, 0.0f},
-        {1.0f, 0.0f, 0.0f, 0.0f}
-    };
+        std::vector<glm::vec3> scales = {
+            {0.03f, 0.03f, 0.03f},
+            {0.2f,  0.03f, 0.03f},
+            {0.03f, 0.2f,  0.03f},
+            {0.03f, 0.03f, 0.2f}
+        };
 
-    std::vector<glm::vec3> scales = {
-        {0.03f, 0.03f, 0.03f},
-        {0.2f,  0.03f, 0.03f},
-        {0.03f, 0.2f,  0.03f},
-        {0.03f, 0.03f, 0.2f}
-    };
+        std::vector<glm::vec3> colors = {
+            {(1.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f, (1.0f - 0.5f) / 0.28209f},
+            {(1.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f},
+            {(0.0f - 0.5f) / 0.28209f, (1.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f},
+            {(0.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f, (1.0f - 0.5f) / 0.28209f}
+        };
 
-    std::vector<glm::vec3> colors = {
-        {(1.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f, (1.0f - 0.5f) / 0.28209f},
-        {(1.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f},
-        {(0.0f - 0.5f) / 0.28209f, (1.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f},
-        {(0.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f, (1.0f - 0.5f) / 0.28209f}
-    };
-
-    std::vector<float> opacities = {1.0f, 1.0f, 1.0f, 1.0f};
-    loaded_model.ws_positions = ws_positions;
-    loaded_model.scales = scales;
-    loaded_model.rotations = rotations;
-    loaded_model.colors = colors;
-    loaded_model.opacities = opacities;
-    */
-
-
-
-
+        std::vector<float> opacities = {1.0f, 1.0f, 1.0f, 1.0f};
+        new_model.count = 4;
+        new_model.ws_positions = ws_positions;
+        new_model.scales = scales;
+        new_model.rotations = rotations;
+        new_model.colors = colors;
+        new_model.opacities = opacities;
+    } else {
+        new_model = gaussian_splat_from_file(model_path);
+    }
 
     std::cout << "Loaded new model:" << std::endl;
-    gaussian_splat_print(loaded_model);
-    // When switching models of different file types, set default scales to avoid crash
-    // if (loaded_model.from_ply && !state->loaded_model.from_ply) {
-    //     state->scale_multiplier = 0.05;
-    // }
-    // if (!loaded_model.from_ply && state->loaded_model.from_ply) {
-    //     state->scale_multiplier = 6.0;
-    // }
-    state->loaded_model = loaded_model;
+    gaussian_splat_print(new_model);
+    state->loaded_model = new_model;
     state->current_model = model_path;
     state->change_model = true;
     state->is_loading_model = false;
@@ -192,16 +182,14 @@ static void imgui_draw(ProgramState *state)
         }
     }
 
-    ImGui::SliderFloat("Scale multipler", &state->scale_multiplier, -10.0, 10.0);
-    ImGui::Checkbox("Render as point cloud", &state->render_as_point_cloud);
+    ImGui::SliderFloat("Scale multipler", &state->scale_multiplier, 0.1, 3.0);
     ImGui::Checkbox("Depth sort", &state->depth_sort);
 
     // Draw mode
-    // TODO: option to choose between Normal, albedo, ...
-    const char *draw_modes[] = { "Normal", "Quad", "Albedo", "Depth" };
+    const char *draw_modes[] = { "Normal", "Quad", "Albedo", "Depth", "Point Cloud" };
     int current_draw_mode = static_cast<int>(state->draw_mode);
     if (ImGui::Combo("Draw Mode", &current_draw_mode, draw_modes, IM_ARRAYSIZE(draw_modes))) {
-        state->draw_mode = static_cast<DrawMode>(current_draw_mode); // Assuming DrawMode is an enum
+        state->draw_mode = static_cast<DrawMode>(current_draw_mode);
     }
 
     ImGui::End();
@@ -235,7 +223,11 @@ void run_program(GLFWwindow* window)
     // Initialise global program state
     ProgramState state;
     state.all_models = list_ply_and_splat_files("../res/");
+    // Test gaussians for debugging
+    state.all_models.push_back("test");
+    // Set default model
     std::string default_model = "../res/father-day.ply";
+    // std::string default_model = "test";
     auto it = std::find(state.all_models.begin(), state.all_models.end(), default_model);
 
     if (it != state.all_models.end()) {
@@ -247,16 +239,16 @@ void run_program(GLFWwindow* window)
         exit(1);
     }
 
-	init_game(window, state);
+    init_game(window, state);
 
     // Rendering Loop
     while (!glfwWindowShouldClose(window)) {
 	    // Clear colour and depth buffers
 	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
 
         update_frame(window, &state);
         render_frame(window, &state);
@@ -268,8 +260,8 @@ void run_program(GLFWwindow* window)
         handleKeyboardInput(window);
 
 		// Renders the ImGUI elements
-		ImGui::Render();
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         // Flip buffers
         glfwSwapBuffers(window);
