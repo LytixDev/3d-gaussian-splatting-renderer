@@ -35,7 +35,7 @@ Gloom::Shader* shader_gaussian;
 Gloom::Shader* shader_point_cloud;
 
 // Projection matrix variables
-float field_of_view = glm::radians(40.0f);
+float field_of_view = glm::radians(60.0f);
 float near_clipping_plane = 0.1f;
 float far_clipping_plane = 200.0f;
 
@@ -430,9 +430,9 @@ void render_frame(GLFWwindow* window, ProgramState *state)
     glfwGetWindowSize(window, &state->windowWidth, &state->windowHeight);
     glViewport(0, 0, state->windowWidth, state->windowHeight);
 
-    shader3D->activate();
-    glUniform3fv(shader3D->getUniformFromName("camera_position"), 1, glm::value_ptr(camera->getPosition()));
-    renderNode3D(rootNode);
+    // shader3D->activate();
+    // glUniform3fv(shader3D->getUniformFromName("camera_position"), 1, glm::value_ptr(camera->getPosition()));
+    // renderNode3D(rootNode);
 
     if (state->draw_mode == Point_Cloud) {
         shader_point_cloud->activate();

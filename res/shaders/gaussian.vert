@@ -28,6 +28,7 @@ out vec2 coordxy;
 flat out int frag_draw_mode;
 
 
+// TODO: Assuming we don't care about the scale_multipler we can do this ahead of time done 
 mat3 compute_cov3d(vec4 R, vec3 s) {
     mat3 scale = mat3(
         scale_multipler * s.x, 0.0, 0.0,
@@ -45,10 +46,10 @@ mat3 compute_cov3d(vec4 R, vec3 s) {
     // I think it's due to a mismatch between my view matrix and the original papers view matrix
     // It may also due to the fact in screen space we go from right handed to a left handed system: 
     //  https://stackoverflow.com/questions/4124041/is-opengl-coordinate-system-left-handed-or-right-handed
-    float r = R.x;
-    float x = -R.y;
-    float y = -R.z;
-    float z = R.w;
+    float r = R.x;  // Real-part
+    float x = -R.y; // i
+    float y = -R.z; // j
+    float z = R.w;  // k
 
     mat3 rotation = mat3(
         1.f - 2.f * (y * y + z * z), 2.f * (x * y - r * z), 2.f * (x * z + r * y),
@@ -98,7 +99,7 @@ vec3 cov2d(vec4 mean, float focal_x, float focal_y, float tan_fovx, float tan_fo
 // For some unkniwn reason passing hvof_focal as a uniform doesn't work properly ...
 // Even when it has the exact same values ...
 vec3 default_hvof_focal() {
-    float htany = tan(radians(40.0) / 2.0);
+    float htany = tan(radians(60.0) / 2.0);
     float htanx = htany / (1080.0) * (1920.0);
     float focal_z = (1080) / (2.0 * htany);
     return vec3(htanx, htany, focal_z);
