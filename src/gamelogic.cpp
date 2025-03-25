@@ -10,8 +10,6 @@
 #include <utilities/glutils.h>
 #include <utilities/imageLoader.hpp>
 #include "glm/fwd.hpp"
-#include "utilities/imageLoader.hpp"
-#include "utilities/glfont.h"
 #include "utilities/plyParser.hpp"
 #include "utilities/camera.hpp"
 #include <SFML/Audio/Sound.hpp>
@@ -68,8 +66,6 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
 void setup_quad() 
 {
-    // The EBO is an optimization to pack the geomtry tighter into memory.
-    // We could change quad_vertices to have 6 explicit triangles and use glDrawArraysInstanced
     float quad_vertices[] = {
         -1.0f, 1.0f,
         -1.0f, -1.0f,
@@ -92,83 +88,52 @@ void setup_quad()
     glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
     
     // Generate and bind EBO (Element Object Buffer, aka index buffer)
-    // This enables us to store the vertices once and then refer to them using this EBO. 
-    // See the glDrawElementsInstanced() call in render_gaussians.
     glGenBuffers(1, &ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quad_indices), quad_indices, GL_STATIC_DRAW);
+
+    // The EBO is an optimization to pack the geomtry tighter into memory.
+    // We could change quad_vertices to have 6 explicit triangles:
+    // float quad_vertices[] = {
+    //     // triangle 1
+    //     -1.0f,  1.0f,
+    //     -1.0f, -1.0f,
+    //      1.0f, -1.0f,
+    //     // triangle 2
+    //     -1.0f,  1.0f,
+    //      1.0f, -1.0f,
+    //      1.0f,  1.0f 
+    // };
+    // and use glDrawArraysInstanced(GL_TRIANGLES, 0, 6, splat.count) in render_gaussians()
+    //
+    // Using the EBO gives slighly better performnce at no cost to complexity.
+}
+
+void setup_attribute(GLuint *VBO, GLuint location, void *data, GLsizei count, GLsizei num_floats)
+{
+    GLint elements = num_floats / sizeof(float);
+    glGenBuffers(1, VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, *VBO);
+    glBufferData(GL_ARRAY_BUFFER, count * num_floats, data, GL_STATIC_DRAW);
+    
+    glVertexAttribPointer(location, num_floats / sizeof(float), GL_FLOAT, GL_FALSE, num_floats, (void*)0);
+    glEnableVertexAttribArray(location);
+    glVertexAttribDivisor(location, 1); // This is an instanced attribute
 }
 
 void setup_gaussians() 
 {
-    // First, set up the quad
     setup_quad();
-
-    glBindVertexArray(vao);
     
-    // Bind the quad's VBO and EBO
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    
-    // NOTE: Quad position
+    // The vertex shader needs to know it's quad position
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
     glEnableVertexAttribArray(0);
-
     
-    // Position buffer setup
-    glGenBuffers(1, &positionVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
-    glBufferData(GL_ARRAY_BUFFER, 
-                 splat.ws_positions.size() * sizeof(glm::vec3), 
-                 splat.ws_positions.data(), 
-                 GL_STATIC_DRAW);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-    glEnableVertexAttribArray(2);
-    glVertexAttribDivisor(2, 1); // Tell OpenGL this is an instanced attribute
-    
-    // Color buffer setup
-    glGenBuffers(1, &colorVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
-    glBufferData(GL_ARRAY_BUFFER,
-                 splat.colors.size() * sizeof(glm::vec3),
-                 splat.colors.data(),
-                 GL_STATIC_DRAW);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-    glEnableVertexAttribArray(3);
-    glVertexAttribDivisor(3, 1); // Tell OpenGL this is an instanced attribute
-    
-    // Scale buffer setup
-    glGenBuffers(1, &scaleVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, scaleVBO);
-    glBufferData(GL_ARRAY_BUFFER,
-                 splat.scales.size() * sizeof(glm::vec3),
-                 splat.scales.data(),
-                 GL_STATIC_DRAW);
-    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-    glEnableVertexAttribArray(4);
-    glVertexAttribDivisor(4, 1); // Tell OpenGL this is an instanced attribute
-    
-    // Alpha buffer setup
-    glGenBuffers(1, &alphaVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, alphaVBO);
-    glBufferData(GL_ARRAY_BUFFER,
-                 splat.opacities.size() * sizeof(float),
-                 splat.opacities.data(),
-                 GL_STATIC_DRAW);
-    glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(float), (void*)0);
-    glEnableVertexAttribArray(5);
-    glVertexAttribDivisor(5, 1); // Tell OpenGL this is an instanced attribute
-    
-    // Rotation buffer setup
-    glGenBuffers(1, &rotationVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, rotationVBO);
-    glBufferData(GL_ARRAY_BUFFER,
-                 splat.rotations.size() * sizeof(glm::vec4),
-                 splat.rotations.data(),
-                 GL_STATIC_DRAW);
-    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), (void*)0);
-    glEnableVertexAttribArray(6);
-    glVertexAttribDivisor(6, 1); // Tell OpenGL this is an instanced attribute
+    setup_attribute(&positionVBO, 2, splat.ws_positions.data(), splat.ws_positions.size(), sizeof(glm::vec3));
+    setup_attribute(&colorVBO,    3, splat.colors.data(), splat.colors.size(), sizeof(glm::vec3));
+    setup_attribute(&scaleVBO,    4, splat.scales.data(), splat.scales.size(), sizeof(glm::vec3));
+    setup_attribute(&alphaVBO,    5, splat.opacities.data(), splat.opacities.size(), sizeof(float));
+    setup_attribute(&rotationVBO, 6, splat.rotations.data(), splat.rotations.size(), sizeof(glm::vec4));
 }
 
 void free_gaussians() 
