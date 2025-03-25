@@ -109,16 +109,16 @@ void setup_quad()
     // Using the EBO gives slighly better performnce at no cost to complexity.
 }
 
-void setup_attribute(GLuint *VBO, GLuint location, void *data, GLsizei count, GLsizei num_floats)
+void setup_attribute(GLuint *VBO, GLuint location, void *data, GLsizei count, GLsizei datatype_size)
 {
-    GLint elements = num_floats / sizeof(float);
+    GLint elements = datatype_size / sizeof(float);
     glGenBuffers(1, VBO);
     glBindBuffer(GL_ARRAY_BUFFER, *VBO);
-    glBufferData(GL_ARRAY_BUFFER, count * num_floats, data, GL_STATIC_DRAW);
-    
-    glVertexAttribPointer(location, num_floats / sizeof(float), GL_FLOAT, GL_FALSE, num_floats, (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, count * datatype_size, data, GL_STATIC_DRAW);
+    glVertexAttribPointer(location, elements, GL_FLOAT, GL_FALSE, datatype_size, (void*)0);
     glEnableVertexAttribArray(location);
-    glVertexAttribDivisor(location, 1); // This is an instanced attribute
+    // Tell OpenGL this is an instanced attribute
+    glVertexAttribDivisor(location, 1);
 }
 
 void setup_gaussians() 
