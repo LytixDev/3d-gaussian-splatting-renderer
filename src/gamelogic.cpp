@@ -24,8 +24,17 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/string_cast.hpp> // Enables to_string on glm types, handy for debugging
 
+
+glm::mat4 lastViewMatrix;
+
+typedef struct {
+    size_t index;
+    float depth;
+} GaussianDepth;
+
+
 Gloom::Camera *camera = new Gloom::Camera(glm::vec3(0.3f, 0.0f, 2.5f), 2.0f, 0.075f);
-double lastFrameTime = 0.0;
+double last_frame_time = 0.0;
 SceneNode* rootNode;
 // These are heap allocated, because they should not be initialised at the start of the program
 Gloom::Shader* shader3D;
@@ -64,7 +73,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     // NOTE: We don't forward any keys to ImGui. Maybe we want to do that later.
 }
 
-void setup_quad() 
+void setup_instanced_quad() 
 {
     float quad_vertices[] = {
         -1.0f, 1.0f,
@@ -107,6 +116,10 @@ void setup_quad()
     // and use glDrawArraysInstanced(GL_TRIANGLES, 0, 6, splat.count) in render_gaussians()
     //
     // Using the EBO gives slighly better performnce at no cost to complexity.
+
+    // The vertex shader needs to know it's quad position
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    glEnableVertexAttribArray(0);
 }
 
 void setup_attribute(GLuint *VBO, GLuint location, void *data, GLsizei count, GLsizei datatype_size)
@@ -123,12 +136,6 @@ void setup_attribute(GLuint *VBO, GLuint location, void *data, GLsizei count, GL
 
 void setup_gaussians() 
 {
-    setup_quad();
-    
-    // The vertex shader needs to know it's quad position
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-    glEnableVertexAttribArray(0);
-    
     setup_attribute(&positionVBO, 2, splat.ws_positions.data(), splat.ws_positions.size(), sizeof(glm::vec3));
     setup_attribute(&colorVBO,    3, splat.colors.data(), splat.colors.size(), sizeof(glm::vec3));
     setup_attribute(&scaleVBO,    4, splat.scales.data(), splat.scales.size(), sizeof(glm::vec3));
@@ -138,9 +145,10 @@ void setup_gaussians()
 
 void free_gaussians() 
 {
-    glDeleteVertexArrays(1, &vao);
-    glDeleteBuffers(1, &vbo);
-    glDeleteBuffers(1, &ebo);
+    // TODO: Update attributes instead !
+    // glDeleteVertexArrays(1, &vao);
+    // glDeleteBuffers(1, &vbo);
+    // glDeleteBuffers(1, &ebo);
     glDeleteBuffers(1, &positionVBO);
     glDeleteBuffers(1, &colorVBO);
     glDeleteBuffers(1, &scaleVBO);
@@ -179,6 +187,8 @@ void render_gaussians(ProgramState *state, bool render_as_point_cloud)
 
 void init_game(GLFWwindow* window, ProgramState state) 
 {
+    setup_instanced_quad();
+    
     splat = state.loaded_model;
     //gaussian_splat_print(splat);
     setup_gaussians();
@@ -199,18 +209,15 @@ void init_game(GLFWwindow* window, ProgramState state)
     shader3D->activate();
 
     // Regular geometry
-    rootNode = createSceneNode(GEOMETRY);
-    SceneNode *triNode = createSceneNode(GEOMETRY);
-    Mesh tri = quadrilateral(glm::vec3(50));
-    unsigned int triVAO = generateBuffer(tri);
-    triNode->position = glm::vec3(10.0, 0.0, -40.0);
-    triNode->vertexArrayObjectID  = triVAO;
-    triNode->VAOIndexCount        = tri.indices.size();
-    rootNode->children.push_back(triNode);
-
-    getTimeDeltaSeconds();
-
-    std::cout << fmt::format("Initialized scene with {} SceneNodes.", totalChildren(rootNode)) << std::endl;
+    // rootNode = createSceneNode(GEOMETRY);
+    // SceneNode *triNode = createSceneNode(GEOMETRY);
+    // Mesh tri = quadrilateral(glm::vec3(50));
+    // unsigned int triVAO = generateBuffer(tri);
+    // triNode->position = glm::vec3(10.0, 0.0, -40.0);
+    // triNode->vertexArrayObjectID  = triVAO;
+    // triNode->VAOIndexCount        = tri.indices.size();
+    // rootNode->children.push_back(triNode);
+    // std::cout << fmt::format("Initialized scene with {} SceneNodes.", totalChildren(rootNode)) << std::endl;
 }
 
 void update_frame(GLFWwindow* window, ProgramState *state)
@@ -224,18 +231,17 @@ void update_frame(GLFWwindow* window, ProgramState *state)
         setup_gaussians();
     }
 
-    double currentTime = glfwGetTime();
-    float deltaTime = static_cast<float>(currentTime - lastFrameTime);
-    lastFrameTime = currentTime;
-    
-    camera->updateCamera(deltaTime);
+    double current_time = glfwGetTime();
+    float delta_time = static_cast<float>(current_time - last_frame_time);
+    last_frame_time = current_time;
+    camera->updateCamera(delta_time);
 
-    float aspect_ratio = float(state->windowWidth) / float(state->windowHeight);
-    glm::mat4 projection = glm::perspective(field_of_view, aspect_ratio, near_clipping_plane, far_clipping_plane);
-    glm::mat4 VP = projection * camera->getViewMatrix();
-
-    glm::mat4 identity = glm::mat4(1);
-    updateNodeTransformations(rootNode, identity, VP);
+    // Update regular geometry
+    // float aspect_ratio = float(state->windowWidth) / float(state->windowHeight);
+    // glm::mat4 projection = glm::perspective(field_of_view, aspect_ratio, near_clipping_plane, far_clipping_plane);
+    // glm::mat4 VP = projection * camera->getViewMatrix();
+    // glm::mat4 identity = glm::mat4(1);
+    // updateNodeTransformations(rootNode, identity, VP);
 }
 
 void updateNodeTransformations(SceneNode* node, glm::mat4 transformationThusFar, glm::mat4 VP) 
@@ -269,7 +275,6 @@ void updateNodeTransformations(SceneNode* node, glm::mat4 transformationThusFar,
     }
 }
 
-
 void renderNode3D(SceneNode* node) {
     glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(node->currentTransformationMatrix));
     glUniformMatrix4fv(4, 1, GL_FALSE, glm::value_ptr(node->modelMatrix));
@@ -296,13 +301,6 @@ void renderNode3D(SceneNode* node) {
         renderNode3D(child);
     }
 }
-
-glm::mat4 lastViewMatrix;
-
-typedef struct {
-    size_t index;
-    float depth;
-} GaussianDepth;
 
 bool depth_sort_and_update_buffers() 
 {
@@ -396,6 +394,7 @@ void render_frame(GLFWwindow* window, ProgramState *state)
     glfwGetWindowSize(window, &state->windowWidth, &state->windowHeight);
     glViewport(0, 0, state->windowWidth, state->windowHeight);
 
+    // Draw regular geometry
     // shader3D->activate();
     // glUniform3fv(shader3D->getUniformFromName("camera_position"), 1, glm::value_ptr(camera->getPosition()));
     // renderNode3D(rootNode);
@@ -405,9 +404,12 @@ void render_frame(GLFWwindow* window, ProgramState *state)
     } else {
         shader_gaussian->activate();
     }
-    //glUniform1f(shader_gaussian->getUniformFromName("scale_multipler"), state->scale_multiplier);
-    glUniform1f(1, state->scale_multiplier);
 
+    glUniform1f(1, state->scale_multiplier);
+    glUniform1i(5, state->draw_mode);
+
+    // NOTE: Didn't work for some stupid unknown reason ... 
+    //       Had to resolve to just hard-coding the focal_fov into the shader :-(
     // Camera params used to calculate the Jacobian from view space to screen space
     // float htany = tan(field_of_view / 2.0);
     // float htanx = htany / float(state->windowHeight) * float(state->windowHeight);
@@ -415,8 +417,6 @@ void render_frame(GLFWwindow* window, ProgramState *state)
     // float focal_z = float(state->windowHeight) / (2 * htany);
     // glm::vec3 focal_fov = glm::vec3(htanx, htany, focal_z);
     // glUniform3fv(4, 1, glm::value_ptr(focal_fov));
-
-    glUniform1i(5, state->draw_mode);
 
     render_gaussians(state, state->draw_mode == Point_Cloud);
 }
