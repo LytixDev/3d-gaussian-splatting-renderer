@@ -43,33 +43,29 @@ static void load_model(ProgramState *state, std::string model_path)
         std::vector<glm::vec3> ws_positions = {
             {0.0f, 0.0f, 0.0f},
             {1.0f, 0.0f, 0.0f},
-            {0.0f, 1.0f, 0.0f},
-            {0.0f, 0.0f, 1.0f}
+            // {0.0f, 1.0f, 0.0f},
+            // {0.0f, 0.0f, 1.0f}
         };
-
         std::vector<glm::vec4> rotations = {
-            {1.0f, 1.0f, 0.0f, 0.0f},
             {1.0f, 0.0f, 0.0f, 0.0f},
             {1.0f, 0.0f, 0.0f, 0.0f},
-            {1.0f, 0.0f, 0.0f, 0.0f}
+            // {1.0f, 0.0f, 0.0f, 0.0f},
+            // {1.0f, 0.0f, 0.0f, 0.0f}
         };
-
         std::vector<glm::vec3> scales = {
             {0.03f, 0.03f, 0.03f},
             {0.2f,  0.03f, 0.03f},
-            {0.03f, 0.2f,  0.03f},
-            {0.03f, 0.03f, 0.2f}
+            // {0.03f, 0.2f,  0.03f},
+            // {0.03f, 0.03f, 0.2f}
         };
-
         std::vector<glm::vec3> colors = {
-            {(1.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f, (1.0f - 0.5f) / 0.28209f},
+            {(0.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f, (1.0f - 0.5f) / 0.28209f},
             {(1.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f},
-            {(0.0f - 0.5f) / 0.28209f, (1.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f},
-            {(0.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f, (1.0f - 0.5f) / 0.28209f}
+            // {(0.0f - 0.5f) / 0.28209f, (1.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f},
+            // {(0.0f - 0.5f) / 0.28209f, (0.0f - 0.5f) / 0.28209f, (1.0f - 0.5f) / 0.28209f}
         };
-
-        std::vector<float> opacities = {1.0f, 1.0f, 1.0f, 1.0f};
-        new_model.count = 4;
+        std::vector<float> opacities = {1.0f, 1.0f};//, 1.0f, 1.0f};
+        new_model.count = 2;
         new_model.ws_positions = ws_positions;
         new_model.scales = scales;
         new_model.rotations = rotations;

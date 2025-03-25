@@ -1,4 +1,7 @@
 #version 430 core
+// This entire file is heavily based on: https://github.com/graphdeco-inria/diff-gaussian-rasterization/blob/main/cuda_rasterizer/forward.cu
+//  which is the original CUDA renderer from Kerb et al.
+
 layout (location = 0) in vec2 quadVertex;
 
 // Per-instance attributes
@@ -19,6 +22,7 @@ uniform layout(location = 5) int draw_mode;
 //     Quad = 1
 //     Albedo = 2
 //     Depth = 3
+//     Point_Cloud = 4
 
 // To fragment shader
 out vec3 frag_color;
@@ -28,6 +32,7 @@ out vec2 coordxy;
 flat out int frag_draw_mode;
 
 
+// TODO: Assuming we don't care about the scale_multipler we can do this ahead of time done 
 mat3 compute_cov3d(vec4 R, vec3 s) {
     mat3 scale = mat3(
         scale_multipler * s.x, 0.0, 0.0,
@@ -40,15 +45,12 @@ mat3 compute_cov3d(vec4 R, vec3 s) {
     //     0.0, 0.0, s.z
     // );
 
-
     // Arghhh, this took way to long to figure out.
     // I think it's due to a mismatch between my view matrix and the original papers view matrix
-    // It may also due to the fact in screen space we go from right handed to a left handed system: 
-    //  https://stackoverflow.com/questions/4124041/is-opengl-coordinate-system-left-handed-or-right-handed
-    float r = R.x;
-    float x = -R.y;
-    float y = -R.z;
-    float z = R.w;
+    float r = R.x;  // Real-part
+    float x = -R.y; // i
+    float y = -R.z; // j
+    float z = R.w;  // k
 
     mat3 rotation = mat3(
         1.f - 2.f * (y * y + z * z), 2.f * (x * y - r * z), 2.f * (x * z + r * y),
@@ -61,7 +63,7 @@ mat3 compute_cov3d(vec4 R, vec3 s) {
 }
 
 
-// Based on: https://github.com/graphdeco-inria/diff-gaussian-rasterization/blob/main/cuda_rasterizer/forward.cu
+// Pretty much copy paste from https://github.com/graphdeco-inria/diff-gaussian-rasterization/blob/main/cuda_rasterizer/forward.cu
 vec3 cov2d(vec4 mean, float focal_x, float focal_y, float tan_fovx, float tan_fovy, mat3 cov3D, mat4 viewmatrix)
 {
     vec4 t = mean;
@@ -98,7 +100,7 @@ vec3 cov2d(vec4 mean, float focal_x, float focal_y, float tan_fovx, float tan_fo
 // For some unkniwn reason passing hvof_focal as a uniform doesn't work properly ...
 // Even when it has the exact same values ...
 vec3 default_hvof_focal() {
-    float htany = tan(radians(40.0) / 2.0);
+    float htany = tan(radians(60.0) / 2.0);
     float htanx = htany / (1080.0) * (1920.0);
     float focal_z = (1080) / (2.0 * htany);
     return vec3(htanx, htany, focal_z);
@@ -106,54 +108,51 @@ vec3 default_hvof_focal() {
 
 void main() { 
     vec3 hfov = default_hvof_focal();
-    // hfov = hfov_focal;
 
-    // Frustum culling
-    //vec4 p_view = view_matrix * vec4(position_ws, 1);
-    //if (p_view.z < -200.0f) {
-    //    gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
-    //    return;
-    //}
+    // Near culling, made no performance benefit
+    // vec4 p_view = view_matrix * vec4(position_ws, 1);
+    // if (p_view.z <= 0.2f) {
+    //     gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
+    //     return;
+    // }
 
     mat3 cov3d = compute_cov3d(rotation, scale);
-    //if (scale_multipler == 1.f) {
-    //    cov3d = compute_cov3d(vec4(0.f, 0.f, 0.f, 0.f), scale);
-    //}
-
-    // To camera space
+    // Transform position to camera space
     vec4 position_cs = view_matrix * vec4(position_ws, 1.0);
-    vec4 position_2d = projection_matrix * position_cs;
-    position_2d.xyz = position_2d.xyz / position_2d.w;
-    position_2d.w = 1.0f;
-    vec2 wh = 2 * hfov.xy * hfov.z;
 
+    // Compute 2d covariance
     vec3 cov2d = cov2d(position_cs, hfov.z, hfov.z, hfov.x, hfov.y, cov3d, view_matrix);
     float det = (cov2d.x * cov2d.z - cov2d.y * cov2d.y);
-    // Gaussian is not visible from this view.
-    if (det == 0.0f) {
-        gl_Position = vec4(0.f, 0.f, 0.f, 0.f);
-        return;
-    }
-    
+    // Gaussian is not visible from this view, so we can early stop. Made no performance benefit.
+    // if (det == 0.0f) {
+    //     gl_Position = vec4(0.f, 0.f, 0.f, 0.f);
+    //     return;
+    // }
+    // EWA algorithm
     float det_inv = 1.0f / det;
     conic = vec3(cov2d.z * det_inv, -cov2d.y * det_inv, cov2d.x * det_inv);
 
-    // Size of quad in screen space. Multiplying by 3 means 99% of the Gaussian is covered by the quad.
+    // Size of quad (splat footprint) in screen space. Multiplying by 3 means 99% of the Gaussian is covered by the quad.
     vec2 quad_ss = vec2(3.0f * sqrt(cov2d.x), 3.0f * sqrt(cov2d.z));
     // If quad is huge, something has gone bad
     // if (abs(cov2d.x * cov2d.z) > 100000) {
     //      gl_Position = vec4(0.f, 0.f, 0.f, 0.f);
     //      return;
     // }
-
-    // Size of quad in ndc
+    vec2 wh = 2 * hfov.xy * hfov.z;
+    // Size of quad in NDC
     vec2 quad_ndc = quad_ss / wh * 2;
 
+    // Position transformed from camera space into clip space using the projection matrix
+    vec4 position_2d = projection_matrix * position_cs;
+    // Do the perspective division. Now in NDC.
+    position_2d.xyz = position_2d.xyz / position_2d.w;
+    position_2d.w = 1.0f;
     position_2d.xy = position_2d.xy + quadVertex * quad_ndc;
-
     gl_Position = position_2d;
 
     // Send values to fragment shader 
+
     if (draw_mode == 3) {
         float depth_reciprocal = 1 / -position_cs.z;
         frag_color = vec3(depth_reciprocal, depth_reciprocal, depth_reciprocal);
@@ -161,7 +160,9 @@ void main() {
         frag_color = color;
     }
     frag_alpha = alpha;
+
     // Pixel coordinates
     coordxy = quadVertex * quad_ss;
+
     frag_draw_mode = draw_mode;
 }
