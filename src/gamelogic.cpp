@@ -145,10 +145,6 @@ void setup_gaussians()
 
 void free_gaussians() 
 {
-    // TODO: Update attributes instead !
-    // glDeleteVertexArrays(1, &vao);
-    // glDeleteBuffers(1, &vbo);
-    // glDeleteBuffers(1, &ebo);
     glDeleteBuffers(1, &positionVBO);
     glDeleteBuffers(1, &colorVBO);
     glDeleteBuffers(1, &scaleVBO);
@@ -156,7 +152,7 @@ void free_gaussians()
     glDeleteBuffers(1, &rotationVBO);
 }
 
-void render_gaussians(ProgramState *state, bool render_as_point_cloud) 
+void render_gaussians(ProgramState *state) 
 {
     // Calculate view projection matrix
     float aspect_ratio = float(state->windowWidth) / float(state->windowHeight);
@@ -171,7 +167,7 @@ void render_gaussians(ProgramState *state, bool render_as_point_cloud)
     // Bind the instanced VAO
     glBindVertexArray(vao);
    
-    if (render_as_point_cloud) {
+    if (state->draw_mode == Point_Cloud) {
         // Draw as points
         glEnable(GL_PROGRAM_POINT_SIZE);
         //glDrawArrays(GL_POINTS, 0, splat.ws_positions.size());
@@ -418,5 +414,5 @@ void render_frame(GLFWwindow* window, ProgramState *state)
     // glm::vec3 focal_fov = glm::vec3(htanx, htany, focal_z);
     // glUniform3fv(4, 1, glm::value_ptr(focal_fov));
 
-    render_gaussians(state, state->draw_mode == Point_Cloud);
+    render_gaussians(state);
 }
