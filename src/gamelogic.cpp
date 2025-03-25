@@ -42,7 +42,6 @@ float far_clipping_plane = 200.0f;
 GaussianSplat splat;
 
 GLuint vao, vbo, ebo, positionVBO, colorVBO, scaleVBO, alphaVBO, rotationVBO;
-GLuint instancedVAO;
 
 
 void mouseCallback(GLFWwindow* window, double x, double y) 
@@ -69,6 +68,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
 void setup_quad() 
 {
+    // NOTE: The EBO was to make performance better. Let's test it. glDrawArraysInstanced
     float quad_vertices[] = {
         -1.0f, 1.0f,
         -1.0f, -1.0f,
@@ -90,7 +90,9 @@ void setup_quad()
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
     
-    // Generate and bind EBO
+    // Generate and bind EBO (Element Object Buffer, aka index buffer)
+    // This enables us to store the vertices once and then refer to them using this EBO. 
+    // See the glDrawElementsInstanced() call in render_gaussians.
     glGenBuffers(1, &ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quad_indices), quad_indices, GL_STATIC_DRAW);
@@ -100,10 +102,8 @@ void setup_gaussians()
 {
     // First, set up the quad
     setup_quad();
-    
-    // Set up instanced rendering
-    glGenVertexArrays(1, &instancedVAO);
-    glBindVertexArray(instancedVAO);
+
+    glBindVertexArray(vao);
     
     // Bind the quad's VBO and EBO
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -173,7 +173,7 @@ void setup_gaussians()
 void free_gaussians() 
 {
     glDeleteVertexArrays(1, &vao);
-    glDeleteVertexArrays(1, &instancedVAO);
+    //glDeleteVertexArrays(1, &instancedVAO);
     glDeleteBuffers(1, &vbo);
     glDeleteBuffers(1, &ebo);
     glDeleteBuffers(1, &positionVBO);
@@ -196,7 +196,7 @@ void render_gaussians(ProgramState *state, bool render_as_point_cloud)
     glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(projection));
     
     // Bind the instanced VAO
-    glBindVertexArray(instancedVAO);
+    glBindVertexArray(vao);
    
     if (render_as_point_cloud) {
         // Draw as points
@@ -204,9 +204,10 @@ void render_gaussians(ProgramState *state, bool render_as_point_cloud)
         //glDrawArrays(GL_POINTS, 0, splat.ws_positions.size());
         glDrawArraysInstanced(GL_POINTS, 0, 1, splat.ws_positions.size());
     } else {
-        // Draw all Gaussians as instanced quads
-        // 6 vertices per quad 
-        glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, splat.ws_positions.size());
+        // Draw all Gaussians as instanced quads (6 vertices per quad)
+        // 1. This will fetch indices from the EBO
+        // 2. Draws each instance using per-instance attributes (position, scale, ...)
+        glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, splat.count);
     }
 }
 
