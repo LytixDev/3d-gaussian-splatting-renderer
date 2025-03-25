@@ -68,7 +68,8 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
 void setup_quad() 
 {
-    // NOTE: The EBO was to make performance better. Let's test it. glDrawArraysInstanced
+    // The EBO is an optimization to pack the geomtry tighter into memory.
+    // We could change quad_vertices to have 6 explicit triangles and use glDrawArraysInstanced
     float quad_vertices[] = {
         -1.0f, 1.0f,
         -1.0f, -1.0f,
@@ -173,7 +174,6 @@ void setup_gaussians()
 void free_gaussians() 
 {
     glDeleteVertexArrays(1, &vao);
-    //glDeleteVertexArrays(1, &instancedVAO);
     glDeleteBuffers(1, &vbo);
     glDeleteBuffers(1, &ebo);
     glDeleteBuffers(1, &positionVBO);
