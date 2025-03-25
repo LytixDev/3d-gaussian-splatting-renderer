@@ -128,17 +128,11 @@ void main() {
     //     gl_Position = vec4(0.f, 0.f, 0.f, 0.f);
     //     return;
     // }
+    // EWA algorithm
     float det_inv = 1.0f / det;
     conic = vec3(cov2d.z * det_inv, -cov2d.y * det_inv, cov2d.x * det_inv);
 
-
-    // Position transformed from camera space into clip space using the projection matrix
-    vec4 position_2d = projection_matrix * position_cs;
-    // Do the perspective division. Now in NDC.
-    position_2d.xyz = position_2d.xyz / position_2d.w;
-    position_2d.w = 1.0f;
-
-    // Size of quad in screen space. Multiplying by 3 means 99% of the Gaussian is covered by the quad.
+    // Size of quad (splat footprint) in screen space. Multiplying by 3 means 99% of the Gaussian is covered by the quad.
     vec2 quad_ss = vec2(3.0f * sqrt(cov2d.x), 3.0f * sqrt(cov2d.z));
     // If quad is huge, something has gone bad
     // if (abs(cov2d.x * cov2d.z) > 100000) {
@@ -149,12 +143,15 @@ void main() {
     // Size of quad in NDC
     vec2 quad_ndc = quad_ss / wh * 2;
 
+    // Position transformed from camera space into clip space using the projection matrix
+    vec4 position_2d = projection_matrix * position_cs;
+    // Do the perspective division. Now in NDC.
+    position_2d.xyz = position_2d.xyz / position_2d.w;
+    position_2d.w = 1.0f;
     position_2d.xy = position_2d.xy + quadVertex * quad_ndc;
-
+    gl_Position = position_2d;
 
     // Send values to fragment shader 
-
-    gl_Position = position_2d;
 
     if (draw_mode == 3) {
         float depth_reciprocal = 1 / -position_cs.z;
@@ -166,5 +163,6 @@ void main() {
 
     // Pixel coordinates
     coordxy = quadVertex * quad_ss;
+
     frag_draw_mode = draw_mode;
 }
