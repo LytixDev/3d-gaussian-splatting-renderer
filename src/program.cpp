@@ -188,6 +188,18 @@ static void imgui_draw(ProgramState *state)
         state->draw_mode = static_cast<DrawMode>(current_draw_mode);
     }
 
+    ImGui::Text("Help:");
+    const char *help_text =
+        "- Use the dropdown menu to select different models.\n"
+        "- Depth sorting is super slow, so you may want to use it sparingly :-).\n"
+        "- Camera controls:\n"
+        "  * Move: WASD, Space (up), Left Shift (down)\n"
+        "  * Look: Hold Right Mouse Button and move the mouse\n"
+        "\n";
+
+    ImGuiInputTextFlags flags = ImGuiInputTextFlags_ReadOnly;
+    ImGui::InputTextMultiline("##help_text", (char*)help_text, strlen(help_text) + 1,
+                              ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 8), flags);
     ImGui::End();
 }
 
